@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<any>;
+  register: (email: string, pass: string) => Promise<any>;
   logout: () => Promise<any>;
 }
 
@@ -41,6 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return signInWithEmailAndPassword(auth, email, pass);
   }
 
+  const register = (email: string, pass: string) => {
+    if (!auth) {
+      return Promise.reject(new Error("Firebase no está configurado. Agregue sus credenciales al archivo .env."));
+    }
+    return createUserWithEmailAndPassword(auth, email, pass);
+  };
+
   const logout = () => {
     if (!auth) {
       router.push('/login');
@@ -55,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     login,
+    register,
     logout,
   };
 

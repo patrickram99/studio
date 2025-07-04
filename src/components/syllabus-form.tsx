@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, ChangeEvent, useCallback, useMemo } from 'react';
+import { useState, ChangeEvent, useCallback, useMemo, useEffect } from 'react';
 import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
   FileSignature,
-  FileText,
   FlaskConical,
   GraduationCap,
   KeyRound,
@@ -16,6 +15,7 @@ import {
   Loader2,
   PlusCircle,
   Quote,
+  Save,
   Sparkles,
   Trash2,
   Upload,
@@ -27,7 +27,6 @@ import Image from 'next/image';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,46 +34,30 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { validateReferenceAction } from '@/app/actions';
+import { validateReferenceAction, saveSyllabusAction, getSyllabusAction } from '@/app/actions';
 import type { ValidateApaReferenceOutput } from '@/ai/flows/validate-apa-reference';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-context';
+import type { Syllabus, Week, LearningUnit } from '@/types/syllabus';
 
-interface Week {
-  id: number;
-  topic: string;
-  activities: string;
-  evidence: string;
-}
 
-interface LearningUnit {
-  id: number;
-  name: string;
-  weeks: Week[];
-}
-
-export function SyllabusForm() {
-  const { toast } = useToast();
-  
-  // State for all form fields
-  const [courseName, setCourseName] = useState('Introducción a la Inteligencia Artificial');
-  const [courseKey, setCourseKey] = useState('CS401');
-  const [credits, setCredits] = useState('8');
-  const [theoryHours, setTheoryHours] = useState('4');
-  const [practiceHours, setPracticeHours] = useState('4');
-  const [author, setAuthor] = useState('Claude Shannon');
-
-  const [creationDate, setCreationDate] = useState<Date | undefined>(new Date());
-  const [updateDate, setUpdateDate] = useState<Date | undefined>(new Date());
-
-  const [graduateCompetency, setGraduateCompetency] = useState('Diseña y desarrolla sistemas inteligentes que resuelven problemas complejos en diversos dominios, considerando implicaciones éticas y sociales.');
-  const [courseCompetency, setCourseCompetency] = useState('Aplica los principios fundamentales del aprendizaje automático para construir y evaluar modelos predictivos, y comprende los algoritmos básicos de la IA.');
-  const [prerequisites, setPrerequisites] = useState('Conocimientos sólidos de programación (Python), álgebra lineal, probabilidad y estadística.');
-  const [summary, setSummary] = useState('Este curso ofrece una introducción completa a los conceptos y técnicas de la inteligencia artificial. Los temas incluyen agentes inteligentes, búsqueda, representación del conocimiento, incertidumbre, aprendizaje automático y procesamiento del lenguaje natural.');
-
-  const [learningUnits, setLearningUnits] = useState<LearningUnit[]>([
+const initialSyllabusData: Syllabus = {
+  courseName: 'Introducción a la Inteligencia Artificial',
+  courseKey: 'CS401',
+  credits: '8',
+  theoryHours: '4',
+  practiceHours: '4',
+  author: 'Claude Shannon',
+  creationDate: new Date(),
+  updateDate: new Date(),
+  graduateCompetency: 'Diseña y desarrolla sistemas inteligentes que resuelven problemas complejos en diversos dominios, considerando implicaciones éticas y sociales.',
+  courseCompetency: 'Aplica los principios fundamentales del aprendizaje automático para construir y evaluar modelos predictivos, y comprende los algoritalos básicos de la IA.',
+  prerequisites: 'Conocimientos sólidos de programación (Python), álgebra lineal, probabilidad y estadística.',
+  summary: 'Este curso ofrece una introducción completa a los conceptos y técnicas de la inteligencia artificial. Los temas incluyen agentes inteligentes, búsqueda, representación del conocimiento, incertidumbre, aprendizaje automático y procesamiento del lenguaje natural.',
+  learningUnits: [
     {
       id: 1,
       name: 'Introducción a la IA y Agentes Inteligentes',
@@ -90,22 +73,52 @@ export function SyllabusForm() {
         { id: 3, topic: 'Búsqueda no informada (BFS, DFS)', activities: 'Ejercicios de implementación de algoritmos de búsqueda.', evidence: 'Código de algoritmos de búsqueda.' },
       ],
     },
-  ]);
+  ],
+  methodology: 'ABP',
+  customMethodology: '',
+  apaReference: 'Russell, S. J., & Norvig, P. (2020). Artificial intelligence: A modern approach (4th ed.). Pearson.',
+  signaturePreview: null,
+};
 
-  const [methodology, setMethodology] = useState('ABP');
-  const [customMethodology, setCustomMethodology] = useState('');
 
-  const [apaReference, setApaReference] = useState('Russell, S. J., & Norvig, P. (2020). Artificial intelligence: A modern approach (4th ed.). Pearson.');
+export function SyllabusForm() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const [syllabus, setSyllabus] = useState<Syllabus>(initialSyllabusData);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
   const [validationResult, setValidationResult] = useState<ValidateApaReferenceOutput | null>(null);
   const [isValidating, setIsValidating] = useState(false);
 
-  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (user) {
+      setIsLoading(true);
+      getSyllabusAction(user.uid).then(({ syllabus: loadedSyllabus, error }) => {
+        if (error) {
+          toast({ variant: 'destructive', title: 'Error al cargar', description: error });
+        } else if (loadedSyllabus) {
+          setSyllabus(loadedSyllabus);
+        } else {
+          // New user, use initial data but update author
+          setSyllabus(prev => ({ ...prev, author: user.displayName || user.email || ''}));
+        }
+        setIsLoading(false);
+      });
+    }
+  }, [user, toast]);
 
-  const totalWeeks = useMemo(() => learningUnits.reduce((acc, unit) => acc + unit.weeks.length, 0), [learningUnits]);
+
+  const handleFieldChange = (field: keyof Syllabus, value: any) => {
+    setSyllabus(prev => ({ ...prev, [field]: value }));
+  };
+
+  const totalWeeks = useMemo(() => syllabus.learningUnits.reduce((acc, unit) => acc + unit.weeks.length, 0), [syllabus.learningUnits]);
 
   const handleAddWeek = useCallback((unitIndex: number) => {
-    setLearningUnits(prevUnits => {
-      const newUnits = [...prevUnits];
+    setSyllabus(prevSyllabus => {
+      const newUnits = JSON.parse(JSON.stringify(prevSyllabus.learningUnits));
       const unit = newUnits[unitIndex];
       const newWeekNumber = totalWeeks + 1;
       const isExamWeek = newWeekNumber === 9;
@@ -124,64 +137,73 @@ export function SyllabusForm() {
         });
       }
 
-      return newUnits;
+      return { ...prevSyllabus, learningUnits: newUnits };
     });
   }, [totalWeeks, toast]);
 
   const handleDeleteWeek = useCallback((unitIndex: number, weekId: number) => {
-    setLearningUnits(prevUnits =>
-      prevUnits.map((unit, uIndex) => {
-        if (uIndex === unitIndex) {
-          return {
-            ...unit,
-            weeks: unit.weeks.filter(week => week.id !== weekId),
-          };
-        }
-        return unit;
-      })
-    );
+    setSyllabus(prev => ({
+        ...prev,
+        learningUnits: prev.learningUnits.map((unit, uIndex) => {
+            if (uIndex === unitIndex) {
+            return {
+                ...unit,
+                weeks: unit.weeks.filter(week => week.id !== weekId),
+            };
+            }
+            return unit;
+        })
+    }));
   }, []);
 
   const handleWeekChange = (unitIndex: number, weekId: number, field: keyof Week, value: string) => {
-    setLearningUnits(prevUnits =>
-      prevUnits.map((unit, uIndex) => {
-        if (uIndex === unitIndex) {
-          return {
-            ...unit,
-            weeks: unit.weeks.map(week => {
-              if (week.id === weekId) {
-                return { ...week, [field]: value };
-              }
-              return week;
-            }),
-          };
-        }
-        return unit;
-      })
-    );
+    setSyllabus(prev => ({
+        ...prev,
+        learningUnits: prev.learningUnits.map((unit, uIndex) => {
+            if (uIndex === unitIndex) {
+            return {
+                ...unit,
+                weeks: unit.weeks.map(week => {
+                if (week.id === weekId) {
+                    return { ...week, [field]: value };
+                }
+                return week;
+                }),
+            };
+            }
+            return unit;
+        })
+    }));
   };
 
   const handleUnitNameChange = (unitIndex: number, newName: string) => {
-    setLearningUnits(prevUnits =>
-      prevUnits.map((unit, uIndex) =>
-        uIndex === unitIndex ? { ...unit, name: newName } : unit
-      )
-    );
+    setSyllabus(prev => ({
+        ...prev,
+        learningUnits: prev.learningUnits.map((unit, uIndex) =>
+            uIndex === unitIndex ? { ...unit, name: newName } : unit
+        )
+    }));
   };
 
   const handleAddUnit = () => {
-    setLearningUnits(prevUnits => [
-      ...prevUnits,
-      {
-        id: Date.now(),
-        name: `Unidad de Aprendizaje ${prevUnits.length + 1}`,
-        weeks: [],
-      },
-    ]);
+    setSyllabus(prev => ({
+        ...prev,
+        learningUnits: [
+            ...prev.learningUnits,
+            {
+                id: Date.now(),
+                name: `Unidad de Aprendizaje ${prev.learningUnits.length + 1}`,
+                weeks: [],
+            },
+        ]
+    }));
   };
   
   const handleDeleteUnit = (unitId: number) => {
-    setLearningUnits(prevUnits => prevUnits.filter(unit => unit.id !== unitId));
+    setSyllabus(prev => ({
+        ...prev,
+        learningUnits: prev.learningUnits.filter(unit => unit.id !== unitId)
+    }));
   };
 
 
@@ -190,7 +212,7 @@ export function SyllabusForm() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSignaturePreview(reader.result as string);
+        setSyllabus(prev => ({...prev, signaturePreview: reader.result as string}));
       };
       reader.readAsDataURL(file);
     }
@@ -199,10 +221,34 @@ export function SyllabusForm() {
   const handleValidateReference = async () => {
     setIsValidating(true);
     setValidationResult(null);
-    const result = await validateReferenceAction(apaReference);
+    const result = await validateReferenceAction(syllabus.apaReference);
     setValidationResult(result);
     setIsValidating(false);
   };
+  
+  const handleSave = async () => {
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Debe iniciar sesión para guardar.' });
+        return;
+    }
+    setIsSaving(true);
+    const result = await saveSyllabusAction(user.uid, syllabus);
+    if (result.success) {
+        toast({ title: 'Éxito', description: 'Plan de estudios guardado correctamente.' });
+    } else {
+        toast({ variant: 'destructive', title: 'Error al guardar', description: result.error });
+    }
+    setIsSaving(false);
+  };
+
+  if (isLoading) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Cargando su plan de estudios...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -220,27 +266,27 @@ export function SyllabusForm() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="space-y-2">
             <Label htmlFor="courseName" className="flex items-center gap-2"><BookOpen size={16} />Nombre del curso</Label>
-            <Input id="courseName" placeholder="Ej. Cálculo Diferencial" value={courseName} onChange={e => setCourseName(e.target.value)} />
+            <Input id="courseName" placeholder="Ej. Cálculo Diferencial" value={syllabus.courseName} onChange={e => handleFieldChange('courseName', e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="courseKey" className="flex items-center gap-2"><KeyRound size={16} />Clave</Label>
-            <Input id="courseKey" placeholder="Ej. 1011" value={courseKey} onChange={e => setCourseKey(e.target.value)}/>
+            <Input id="courseKey" placeholder="Ej. 1011" value={syllabus.courseKey} onChange={e => handleFieldChange('courseKey', e.target.value)}/>
           </div>
           <div className="space-y-2">
             <Label htmlFor="credits" className="flex items-center gap-2"><Sparkles size={16} />Créditos</Label>
-            <Input id="credits" type="number" placeholder="Ej. 8" value={credits} onChange={e => setCredits(e.target.value)} />
+            <Input id="credits" type="number" placeholder="Ej. 8" value={syllabus.credits} onChange={e => handleFieldChange('credits', e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="theoryHours" className="flex items-center gap-2"><BookOpen size={16} />Horas teóricas</Label>
-            <Input id="theoryHours" type="number" placeholder="Ej. 4" value={theoryHours} onChange={e => setTheoryHours(e.target.value)} />
+            <Input id="theoryHours" type="number" placeholder="Ej. 4" value={syllabus.theoryHours} onChange={e => handleFieldChange('theoryHours', e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="practiceHours" className="flex items-center gap-2"><FlaskConical size={16} />Horas prácticas</Label>
-            <Input id="practiceHours" type="number" placeholder="Ej. 2" value={practiceHours} onChange={e => setPracticeHours(e.target.value)} />
+            <Input id="practiceHours" type="number" placeholder="Ej. 2" value={syllabus.practiceHours} onChange={e => handleFieldChange('practiceHours', e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="author" className="flex items-center gap-2"><User size={16} />Elaboró</Label>
-            <Input id="author" placeholder="Nombre del profesor" value={author} onChange={e => setAuthor(e.target.value)} />
+            <Input id="author" placeholder="Nombre del profesor" value={syllabus.author} onChange={e => handleFieldChange('author', e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-2"><CalendarDays size={16} />Fecha de elaboración</Label>
@@ -250,15 +296,15 @@ export function SyllabusForm() {
                   variant={"outline"}
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !creationDate && "text-muted-foreground"
+                    !syllabus.creationDate && "text-muted-foreground"
                   )}
                 >
                   <CalendarDays className="mr-2 h-4 w-4" />
-                  {creationDate ? format(creationDate, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                  {syllabus.creationDate ? format(new Date(syllabus.creationDate), "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={creationDate} onSelect={setCreationDate} initialFocus />
+                <Calendar mode="single" selected={new Date(syllabus.creationDate)} onSelect={(date) => handleFieldChange('creationDate', date)} initialFocus />
               </PopoverContent>
             </Popover>
           </div>
@@ -270,15 +316,15 @@ export function SyllabusForm() {
                   variant={"outline"}
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !updateDate && "text-muted-foreground"
+                    !syllabus.updateDate && "text-muted-foreground"
                   )}
                 >
                   <CalendarDays className="mr-2 h-4 w-4" />
-                  {updateDate ? format(updateDate, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                  {syllabus.updateDate ? format(new Date(syllabus.updateDate), "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={updateDate} onSelect={setUpdateDate} initialFocus />
+                <Calendar mode="single" selected={new Date(syllabus.updateDate)} onSelect={(date) => handleFieldChange('updateDate', date)} initialFocus />
               </PopoverContent>
             </Popover>
           </div>
@@ -297,11 +343,11 @@ export function SyllabusForm() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="graduateCompetency" className="flex items-center gap-2"><GraduationCap size={16} />Competencia del Perfil de Egreso</Label>
-            <Textarea id="graduateCompetency" placeholder="Describa la competencia del perfil de egreso..." rows={4} value={graduateCompetency} onChange={e => setGraduateCompetency(e.target.value)} />
+            <Textarea id="graduateCompetency" placeholder="Describa la competencia del perfil de egreso..." rows={4} value={syllabus.graduateCompetency} onChange={e => handleFieldChange('graduateCompetency', e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="courseCompetency" className="flex items-center gap-2"><BookOpen size={16} />Competencia del Curso</Label>
-            <Textarea id="courseCompetency" placeholder="Describa la competencia específica del curso..." rows={4} value={courseCompetency} onChange={e => setCourseCompetency(e.target.value)} />
+            <Textarea id="courseCompetency" placeholder="Describa la competencia específica del curso..." rows={4} value={syllabus.courseCompetency} onChange={e => handleFieldChange('courseCompetency', e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -318,11 +364,11 @@ export function SyllabusForm() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
                 <Label htmlFor="prerequisites" className="flex items-center gap-2"><ListTree size={16} />Competencias Previas Requeridas</Label>
-                <Textarea id="prerequisites" placeholder="Ej. Conocimientos básicos de álgebra." rows={4} value={prerequisites} onChange={e => setPrerequisites(e.target.value)} />
+                <Textarea id="prerequisites" placeholder="Ej. Conocimientos básicos de álgebra." rows={4} value={syllabus.prerequisites} onChange={e => handleFieldChange('prerequisites', e.target.value)} />
             </div>
             <div className="space-y-2">
                 <Label htmlFor="summary" className="flex items-center gap-2"><FileText size={16} />Resumen del Curso</Label>
-                <Textarea id="summary" placeholder="Proporcione un resumen conciso del curso..." rows={4} value={summary} onChange={e => setSummary(e.target.value)} />
+                <Textarea id="summary" placeholder="Proporcione un resumen conciso del curso..." rows={4} value={syllabus.summary} onChange={e => handleFieldChange('summary', e.target.value)} />
             </div>
         </CardContent>
       </Card>
@@ -339,7 +385,7 @@ export function SyllabusForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {learningUnits.map((unit, unitIndex) => (
+          {syllabus.learningUnits.map((unit, unitIndex) => (
             <div key={unit.id} className="p-4 border rounded-lg space-y-4 bg-background/50">
               <div className="flex items-center justify-between">
                 <Input 
@@ -356,7 +402,7 @@ export function SyllabusForm() {
                     >
                         <PlusCircle size={16} />
                     </Button>
-                    {learningUnits.length > 1 && (
+                    {syllabus.learningUnits.length > 1 && (
                       <Button
                         variant="destructive"
                         size="icon"
@@ -372,7 +418,7 @@ export function SyllabusForm() {
               {unit.weeks.map((week, weekIndex) => (
                 <div key={week.id} className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 items-start p-3 border-l-4 border-primary rounded-r-md bg-card">
                   <div className="flex md:flex-col items-center gap-2">
-                    <span className="text-sm font-bold text-primary">Semana {learningUnits.slice(0, unitIndex).reduce((acc, u) => acc + u.weeks.length, 0) + weekIndex + 1}</span>
+                    <span className="text-sm font-bold text-primary">Semana {syllabus.learningUnits.slice(0, unitIndex).reduce((acc, u) => acc + u.weeks.length, 0) + weekIndex + 1}</span>
                     <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => handleDeleteWeek(unitIndex, week.id)}>
                       <Trash2 size={14} />
                     </Button>
@@ -418,7 +464,7 @@ export function SyllabusForm() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="methodology">Metodología</Label>
-              <Select onValueChange={setMethodology} value={methodology}>
+              <Select onValueChange={(value) => handleFieldChange('methodology', value)} value={syllabus.methodology}>
                 <SelectTrigger id="methodology">
                   <SelectValue placeholder="Seleccione una metodología" />
                 </SelectTrigger>
@@ -430,10 +476,10 @@ export function SyllabusForm() {
                 </SelectContent>
               </Select>
             </div>
-            {methodology === 'Otro' && (
+            {syllabus.methodology === 'Otro' && (
               <div className="space-y-2 animate-in fade-in">
                 <Label htmlFor="customMethodology">Especifique la metodología</Label>
-                <Input id="customMethodology" value={customMethodology} onChange={e => setCustomMethodology(e.target.value)} placeholder="Metodología personalizada" />
+                <Input id="customMethodology" value={syllabus.customMethodology} onChange={e => handleFieldChange('customMethodology', e.target.value)} placeholder="Metodología personalizada" />
               </div>
             )}
           </div>
@@ -441,7 +487,7 @@ export function SyllabusForm() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="apaReference" className="flex items-center gap-2"><Quote size={16}/>Referencia Bibliográfica (APA)</Label>
-              <Textarea id="apaReference" value={apaReference} onChange={e => setApaReference(e.target.value)} placeholder="Pegue aquí su referencia en formato APA 7 para validación..." rows={4} />
+              <Textarea id="apaReference" value={syllabus.apaReference} onChange={e => handleFieldChange('apaReference', e.target.value)} placeholder="Pegue aquí su referencia en formato APA 7 para validación..." rows={4} />
             </div>
             <Button onClick={handleValidateReference} disabled={isValidating}>
               {isValidating ? (
@@ -479,18 +525,22 @@ export function SyllabusForm() {
                 </div>
                 <Input id="signature-upload" type="file" className="hidden" accept="image/png, image/jpeg" onChange={handleSignatureChange} />
             </Label>
-            {signaturePreview && (
+            {syllabus.signaturePreview && (
             <div className="w-full md:w-1/2">
                 <p className="text-sm font-medium mb-2">Vista Previa:</p>
                 <div className="border rounded-md p-4 flex justify-center items-center bg-white">
-                    <Image src={signaturePreview} alt="Vista previa de la firma" width={200} height={100} style={{ objectFit: 'contain' }} />
+                    <Image src={syllabus.signaturePreview} alt="Vista previa de la firma" width={200} height={100} style={{ objectFit: 'contain' }} />
                 </div>
             </div>
             )}
         </CardContent>
       </Card>
       
-      <div className="flex justify-end mt-8">
+      <div className="flex justify-end mt-8 gap-4">
+        <Button size="lg" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save />}
+            {isSaving ? 'Guardando...' : 'Guardar Progreso'}
+        </Button>
         <Button size="lg">
           Generar y Exportar PDF
         </Button>

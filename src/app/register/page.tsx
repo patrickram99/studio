@@ -11,26 +11,26 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { register } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      await register(email, password);
       router.push('/');
     } catch (error: any) {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "Error de inicio de sesión",
-        description: error.message || "No se pudo iniciar sesión. Verifique sus credenciales.",
+        title: "Error de registro",
+        description: error.message || "No se pudo crear la cuenta. Inténtelo de nuevo.",
       });
     } finally {
       setLoading(false);
@@ -41,12 +41,12 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
+          <CardTitle className="text-2xl">Crear Cuenta</CardTitle>
           <CardDescription>
-            Ingrese su correo electrónico para iniciar sesión.
+            Ingrese su correo electrónico y contraseña para registrarse.
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleRegister}>
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Correo electrónico</Label>
@@ -73,12 +73,12 @@ export default function LoginPage() {
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Iniciar Sesión
+              Registrarse
             </Button>
             <div className="text-sm text-center text-muted-foreground">
-              ¿No tienes una cuenta?{' '}
-              <Link href="/register" className="underline font-semibold text-primary-foreground">
-                Regístrate
+              ¿Ya tienes una cuenta?{' '}
+              <Link href="/login" className="underline font-semibold text-primary-foreground">
+                Iniciar sesión
               </Link>
             </div>
           </CardFooter>
