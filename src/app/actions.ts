@@ -127,12 +127,24 @@ export async function saveSyllabusAction(
 export async function getSyllabusesAction(
   userId: string
 ): Promise<{ syllabuses: Syllabus[]; error?: string }> {
-  if (!db) return { syllabuses: [], error: 'La base de datos no está configurada.' };
-  if (!userId) return { syllabuses: [], error: 'Usuario no autenticado.' };
+  console.log(`[Action] Attempting to fetch syllabuses for userId: ${userId}`);
+  
+  if (!db) {
+    const errorMessage = 'La base de datos no está configurada.';
+    console.error(`[Action] Error: ${errorMessage}`);
+    return { syllabuses: [], error: errorMessage };
+  }
+
+  if (!userId) {
+    const errorMessage = 'Usuario no autenticado (userId is missing).';
+    console.error(`[Action] Error: ${errorMessage}`);
+    return { syllabuses: [], error: errorMessage };
+  }
 
   try {
     const q = query(collection(db, 'syllabuses'), where('userId', '==', userId));
     const querySnapshot = await getDocs(q);
+    console.log(`[Action] Query successful. Found ${querySnapshot.docs.length} documents.`);
 
     const syllabuses = querySnapshot.docs.map((docSnap) => {
       const data = docSnap.data();
@@ -146,10 +158,12 @@ export async function getSyllabusesAction(
 
     return { syllabuses };
   } catch (error: any) {
-    console.error('Error getting syllabuses:', error);
-    return { syllabuses: [], error: error.message };
+    console.error(`[Action] Firestore query failed. Code: ${error.code}, Message: ${error.message}`);
+    const descriptiveError = `Error de base de datos (${error.code}). Verifique las reglas de Firestore y la conexión. Mensaje: ${error.message}`;
+    return { syllabuses: [], error: descriptiveError };
   }
 }
+
 
 /**
  * Deletes a syllabus by its ID.

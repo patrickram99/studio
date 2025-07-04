@@ -44,12 +44,13 @@ export default function Home() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    // This check is now more robust, ensuring user and user.uid exist before fetching data.
     if (user && user.uid) {
       setIsDataLoading(true);
+      console.log('Auth state confirmed. Fetching syllabuses for user:', user.uid);
       getSyllabusesAction(user.uid)
         .then(({ syllabuses: loadedSyllabuses, error }) => {
           if (error) {
+            console.error('Error received from getSyllabusesAction:', error);
             toast({ variant: 'destructive', title: 'Error al cargar datos', description: error });
           } else {
             setSyllabuses(loadedSyllabuses);
@@ -60,10 +61,10 @@ export default function Home() {
         })
         .finally(() => setIsDataLoading(false));
     } else if (!loading) {
-      // If the user is not logged in and we are not in a loading state, stop the data loading indicator.
+      console.log('User not available, stopping data loading.');
       setIsDataLoading(false);
     }
-  }, [user, toast]);
+  }, [user, loading, toast]);
   
   const selectedSyllabus = useMemo(() => {
     return syllabuses.find(s => s.id === selectedSyllabusId) || null;
