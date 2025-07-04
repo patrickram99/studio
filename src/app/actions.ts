@@ -39,7 +39,7 @@ export async function validateReferenceAction(
     return {
       isValid: false,
       feedback:
-        'Ocurrió un error al validar la referencia. Por favor, inténtelo de nuevo.',
+        'Ocurrió un error al validar la referencia. Verifique que su clave de API de Gemini esté configurada en el archivo .env.',
     };
   }
 }
@@ -74,6 +74,12 @@ export async function createSyllabusAction(
       customMethodology: '',
       apaReference: '',
       signaturePreview: null,
+      evaluationCriteria: [
+        { id: 1, evaluation: 'Evaluación Parcial 1', weight: 20, instrument: 'Examen escrito', date: null },
+        { id: 2, evaluation: 'Evaluación Parcial 2', weight: 20, instrument: 'Examen escrito', date: null },
+        { id: 3, evaluation: 'Trabajos Prácticos', weight: 30, instrument: 'Proyectos y tareas', date: null },
+        { id: 4, evaluation: 'Evaluación Final', weight: 30, instrument: 'Examen final', date: null },
+      ],
     };
 
     const docRef = await addDoc(collection(db, 'syllabuses'), newSyllabusData);
@@ -121,18 +127,37 @@ export async function saveSyllabusAction(
   }
 }
 
+function convertTimestampsToDates(data: any): any {
+  if (!data) return data;
+
+  if (data.creationDate instanceof Timestamp) {
+    data.creationDate = data.creationDate.toDate();
+  }
+  if (data.updateDate instanceof Timestamp) {
+    data.updateDate = data.updateDate.toDate();
+  }
+  if (Array.isArray(data.learningUnits)) {
+    data.learningUnits.forEach((unit: any) => {
+      if (unit.startDate instanceof Timestamp) unit.startDate = unit.startDate.toDate();
+      if (unit.endDate instanceof Timestamp) unit.endDate = unit.endDate.toDate();
+    });
+  }
+  if (Array.isArray(data.evaluationCriteria)) {
+    data.evaluationCriteria.forEach((criterion: any) => {
+      if (criterion.date instanceof Timestamp) criterion.date = criterion.date.toDate();
+    });
+  }
+  return data;
+}
+
 /**
  * Fetches all syllabuses for a given user.
  */
 export async function getSyllabusesAction(
   userId: string
 ): Promise<{ syllabuses: Syllabus[]; error?: string }> {
-  if (!db) {
-    return { syllabuses: [], error: 'La base de datos no está configurada.' };
-  }
-  if (!userId) {
-    return { syllabuses: [], error: 'Usuario no autenticado (userId is missing).' };
-  }
+  if (!db) return { syllabuses: [], error: 'La base de datos no está configurada.' };
+  if (!userId) return { syllabuses: [], error: 'Usuario no autenticado.' };
 
   try {
     const q = query(collection(db, 'syllabuses'), where('userId', '==', userId));
@@ -140,24 +165,19 @@ export async function getSyllabusesAction(
 
     const syllabuses = querySnapshot.docs.map((docSnap) => {
       const data = docSnap.data();
+      const convertedData = convertTimestampsToDates(data);
       return {
-        ...data,
+        ...convertedData,
         id: docSnap.id,
-        creationDate: (data.creationDate as Timestamp).toDate(),
-        updateDate: (data.updateDate as Timestamp).toDate(),
       } as Syllabus;
     });
 
     return { syllabuses };
   } catch (error: any) {
-    // This is the most likely cause for new users or incorrect rules.
     if (error.code === 'permission-denied') {
-      // If permission is denied for a new user, it's safe to assume they have no syllabuses yet.
-      // We return an empty array to allow the UI to render the "Create a new syllabus" state.
       return { syllabuses: [] }; 
     }
     const descriptiveError = `Error de base de datos (${error.code}). Verifique las reglas de Firestore y la conexión. Mensaje: ${error.message}`;
-    console.error("Error in getSyllabusesAction:", descriptiveError);
     return { syllabuses: [], error: descriptiveError };
   }
 }
@@ -199,11 +219,10 @@ export async function getSyllabusByIdAction(
     }
 
     const data = docSnap.data();
+    const convertedData = convertTimestampsToDates(data);
     const syllabus: Syllabus = {
-      ...data,
+      ...convertedData,
       id: docSnap.id,
-      creationDate: (data.creationDate as Timestamp).toDate(),
-      updateDate: (data.updateDate as Timestamp).toDate(),
     };
 
     return { syllabus };

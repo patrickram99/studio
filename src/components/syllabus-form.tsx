@@ -7,8 +7,6 @@ import {
   CheckCircle2,
   ClipboardList,
   FileSignature,
-  FileText,
-  FlaskConical,
   GraduationCap,
   KeyRound,
   Library,
@@ -24,13 +22,14 @@ import {
   User,
   Users,
   XCircle,
+  Percent,
 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,7 +41,8 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import type { Syllabus, Week } from '@/types/syllabus';
+import type { Syllabus, Week, LearningUnit, EvaluationCriterion } from '@/types/syllabus';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from './ui/table';
 
 interface SyllabusFormProps {
   syllabus: Syllabus;
@@ -59,75 +59,16 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
   const handleFieldChange = (field: keyof Syllabus, value: any) => {
     onSyllabusChange({ ...syllabus, [field]: value });
   };
+  
+  const totalEvaluationWeight = useMemo(() => {
+    return syllabus.evaluationCriteria.reduce((total, criterion) => total + (Number(criterion.weight) || 0), 0);
+  }, [syllabus.evaluationCriteria]);
 
-  const totalWeeks = useMemo(
-    () => syllabus.learningUnits.reduce((acc, unit) => acc + unit.weeks.length, 0),
-    [syllabus.learningUnits]
-  );
 
-  const handleAddWeek = useCallback(
-    (unitIndex: number) => {
-      const newUnits = JSON.parse(JSON.stringify(syllabus.learningUnits));
-      const unit = newUnits[unitIndex];
-      const newWeekNumber = totalWeeks + 1;
-      const isExamWeek = newWeekNumber === 9 || newWeekNumber === 18;
-
-      unit.weeks.push({
-        id: Date.now(),
-        topic: isExamWeek ? `Examen ${newWeekNumber === 9 ? 'Parcial' : 'Final'}` : '',
-        activities: isExamWeek ? 'Evaluación de los conocimientos.' : '',
-        evidence: isExamWeek ? 'Examen resuelto.' : '',
-      });
-
-      if (isExamWeek) {
-        toast({
-          title: `Semana de Examen Agregada`,
-          description: `La semana ${newWeekNumber} se ha populado automáticamente.`,
-        });
-      }
-
-      onSyllabusChange({ ...syllabus, learningUnits: newUnits });
-    },
-    [syllabus, totalWeeks, toast, onSyllabusChange]
-  );
-
-  const handleDeleteWeek = useCallback(
-    (unitIndex: number, weekId: number) => {
-      const newLearningUnits = syllabus.learningUnits.map((unit, uIndex) => {
-        if (uIndex === unitIndex) {
-          return {
-            ...unit,
-            weeks: unit.weeks.filter((week) => week.id !== weekId),
-          };
-        }
-        return unit;
-      });
-      onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
-    },
-    [syllabus, onSyllabusChange]
-  );
-
-  const handleWeekChange = (unitIndex: number, weekId: number, field: keyof Week, value: string) => {
-    const newLearningUnits = syllabus.learningUnits.map((unit, uIndex) => {
-      if (uIndex === unitIndex) {
-        return {
-          ...unit,
-          weeks: unit.weeks.map((week) => {
-            if (week.id === weekId) {
-              return { ...week, [field]: value };
-            }
-            return week;
-          }),
-        };
-      }
-      return unit;
-    });
-    onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
-  };
-
-  const handleUnitNameChange = (unitIndex: number, newName: string) => {
+  // Learning Unit Handlers
+  const handleUnitChange = (unitIndex: number, field: keyof LearningUnit, value: any) => {
     const newLearningUnits = syllabus.learningUnits.map((unit, uIndex) =>
-      uIndex === unitIndex ? { ...unit, name: newName } : unit
+      uIndex === unitIndex ? { ...unit, [field]: value } : unit
     );
     onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
   };
@@ -137,7 +78,10 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
       ...syllabus.learningUnits,
       {
         id: Date.now(),
-        name: `Unidad de Aprendizaje ${syllabus.learningUnits.length + 1}`,
+        denomination: `Unidad ${syllabus.learningUnits.length + 1}`,
+        startDate: null,
+        endDate: null,
+        studentCapacity: '',
         weeks: [],
       },
     ];
@@ -147,6 +91,57 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
   const handleDeleteUnit = (unitId: number) => {
     const newLearningUnits = syllabus.learningUnits.filter((unit) => unit.id !== unitId);
     onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
+  };
+
+  const handleAddWeek = (unitIndex: number) => {
+    const newLearningUnits = [...syllabus.learningUnits];
+    newLearningUnits[unitIndex].weeks.push({
+      id: Date.now(),
+      specificContents: '',
+    });
+    onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
+  };
+
+  const handleDeleteWeek = (unitIndex: number, weekId: number) => {
+    const newLearningUnits = [...syllabus.learningUnits];
+    newLearningUnits[unitIndex].weeks = newLearningUnits[unitIndex].weeks.filter(
+      (week) => week.id !== weekId
+    );
+    onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
+  };
+
+  const handleWeekChange = (unitIndex: number, weekIndex: number, value: string) => {
+    const newLearningUnits = [...syllabus.learningUnits];
+    newLearningUnits[unitIndex].weeks[weekIndex].specificContents = value;
+    onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
+  };
+
+
+  // Evaluation Criteria Handlers
+  const handleCriterionChange = (critIndex: number, field: keyof EvaluationCriterion, value: any) => {
+      const newCriteria = syllabus.evaluationCriteria.map((crit, cIndex) =>
+      cIndex === critIndex ? { ...crit, [field]: value } : crit
+    );
+    onSyllabusChange({ ...syllabus, evaluationCriteria: newCriteria });
+  };
+
+  const handleAddCriterion = () => {
+    const newCriteria = [
+      ...syllabus.evaluationCriteria,
+      {
+        id: Date.now(),
+        evaluation: '',
+        weight: 0,
+        instrument: '',
+        date: null,
+      },
+    ];
+    onSyllabusChange({ ...syllabus, evaluationCriteria: newCriteria });
+  };
+
+  const handleDeleteCriterion = (critId: number) => {
+    const newCriteria = syllabus.evaluationCriteria.filter((crit) => crit.id !== critId);
+    onSyllabusChange({ ...syllabus, evaluationCriteria: newCriteria });
   };
 
   const handleSignatureChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -192,13 +187,13 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     const {
       courseName, courseKey, credits, theoryHours, practiceHours, author,
       graduateCompetency, courseCompetency, prerequisites, summary,
-      learningUnits, methodology, customMethodology, apaReference
+      learningUnits, methodology, customMethodology, apaReference, evaluationCriteria
     } = syllabus;
 
     if (!courseName.trim()) missingFields.push('Nombre del curso');
     if (!courseKey.trim()) missingFields.push('Clave');
-    if (!credits.trim()) missingFields.push('Créditos');
-    if (!theoryHours.trim()) missingFields.push('Horas teóricas');
+    if (!credits.trim() || credits === '0') missingFields.push('Créditos');
+    if (!theoryHours.trim() || theoryHours === '0') missingFields.push('Horas teóricas');
     if (!practiceHours.trim()) missingFields.push('Horas prácticas');
     if (!author.trim()) missingFields.push('Elaboró');
     if (!graduateCompetency.trim()) missingFields.push('Competencia del Perfil de Egreso');
@@ -206,43 +201,43 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     if (!prerequisites.trim()) missingFields.push('Competencias Previas Requeridas');
     if (!summary.trim()) missingFields.push('Resumen del Curso');
     if (!methodology) missingFields.push('Metodología');
-    if (methodology === 'Otro' && !customMethodology.trim()) {
-      missingFields.push('Especifique la metodología');
+    if (methodology === 'Otro' && !customMethodology.trim()) missingFields.push('Especifique la metodología');
+    if (!apaReference.trim()) missingFields.push('Fuentes de consulta');
+    
+    if (totalEvaluationWeight !== 100) missingFields.push('El peso total de evaluación debe ser 100%');
+    if (evaluationCriteria.some(c => !c.evaluation.trim() || !c.instrument.trim() || !c.date)) {
+        missingFields.push('Todos los campos en Criterios de Evaluación son requeridos');
     }
-    if (!apaReference.trim()) missingFields.push('Referencia Bibliográfica (APA)');
 
     if (learningUnits.length === 0) {
       missingFields.push('Unidades de Aprendizaje');
     } else {
-      let unitError = false;
-      for (const unit of learningUnits) {
-        if (!unit.name.trim() || unit.weeks.length === 0) {
-          unitError = true;
-          break;
+        let unitError = false;
+        for (const unit of learningUnits) {
+            if (!unit.denomination.trim() || !unit.studentCapacity.trim() || !unit.startDate || !unit.endDate) {
+                unitError = true;
+                break;
+            }
+            if(unit.weeks.length === 0 || unit.weeks.some(w => !w.specificContents.trim())) {
+                unitError = true;
+                break;
+            }
         }
-        for (const week of unit.weeks) {
-          if (!week.topic.trim() || !week.activities.trim() || !week.evidence.trim()) {
-            unitError = true;
-            break;
-          }
+        if (unitError) {
+            missingFields.push('Todas las Unidades de Aprendizaje y sus semanas deben estar completas');
         }
-        if (unitError) break;
-      }
-      if (unitError) {
-        missingFields.push('Todas las Unidades de Aprendizaje y sus semanas deben estar completas');
-      }
     }
 
     if (missingFields.length > 0) {
       toast({
         variant: 'destructive',
-        title: 'Faltan campos por llenar',
-        description: `Por favor, complete los siguientes campos: ${missingFields.slice(0, 4).join(', ')}${missingFields.length > 4 ? '...' : '.'}`,
+        title: 'Faltan campos por llenar o hay errores',
+        description: `Por favor, complete lo siguiente: ${missingFields.slice(0, 4).join(', ')}${missingFields.length > 4 ? '...' : '.'}`,
       });
     } else {
       window.open(`/print/${syllabus.id}`, '_blank');
     }
-  }, [syllabus, toast]);
+  }, [syllabus, toast, totalEvaluationWeight]);
 
   return (
     <div className="space-y-8">
@@ -259,10 +254,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="courseName" className="flex items-center gap-2">
-              <BookOpen size={16} />
-              Nombre del curso
-            </Label>
+            <Label htmlFor="courseName">Nombre del curso</Label>
             <Input
               id="courseName"
               placeholder="Ej. Cálculo Diferencial"
@@ -271,10 +263,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="courseKey" className="flex items-center gap-2">
-              <KeyRound size={16} />
-              Clave
-            </Label>
+            <Label htmlFor="courseKey">Clave</Label>
             <Input
               id="courseKey"
               placeholder="Ej. 1011"
@@ -283,10 +272,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="credits" className="flex items-center gap-2">
-              <Sparkles size={16} />
-              Créditos
-            </Label>
+            <Label htmlFor="credits">Créditos</Label>
             <Input
               id="credits"
               type="number"
@@ -296,10 +282,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="theoryHours" className="flex items-center gap-2">
-              <BookOpen size={16} />
-              Horas teóricas
-            </Label>
+            <Label htmlFor="theoryHours">Horas teóricas</Label>
             <Input
               id="theoryHours"
               type="number"
@@ -309,10 +292,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="practiceHours" className="flex items-center gap-2">
-              <FlaskConical size={16} />
-              Horas prácticas
-            </Label>
+            <Label htmlFor="practiceHours">Horas prácticas</Label>
             <Input
               id="practiceHours"
               type="number"
@@ -322,80 +302,13 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="author" className="flex items-center gap-2">
-              <User size={16} />
-              Elaboró
-            </Label>
+            <Label htmlFor="author">Elaboró</Label>
             <Input
               id="author"
               placeholder="Nombre del profesor"
               value={syllabus.author}
               onChange={(e) => handleFieldChange('author', e.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <CalendarDays size={16} />
-              Fecha de elaboración
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={'outline'}
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !syllabus.creationDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  {syllabus.creationDate ? (
-                    format(new Date(syllabus.creationDate), 'PPP', { locale: es })
-                  ) : (
-                    <span>Seleccione una fecha</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={new Date(syllabus.creationDate)}
-                  onSelect={(date) => handleFieldChange('creationDate', date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <CalendarDays size={16} />
-              Fecha de última actualización
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={'outline'}
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !syllabus.updateDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  {syllabus.updateDate ? (
-                    format(new Date(syllabus.updateDate), 'PPP', { locale: es })
-                  ) : (
-                    <span>Seleccione una fecha</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={new Date(syllabus.updateDate)}
-                  onSelect={(date) => handleFieldChange('updateDate', date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
           </div>
         </CardContent>
       </Card>
@@ -411,10 +324,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="graduateCompetency" className="flex items-center gap-2">
-              <GraduationCap size={16} />
-              Competencia del Perfil de Egreso
-            </Label>
+            <Label htmlFor="graduateCompetency">Competencia del Perfil de Egreso</Label>
             <Textarea
               id="graduateCompetency"
               placeholder="Describa la competencia del perfil de egreso..."
@@ -424,10 +334,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="courseCompetency" className="flex items-center gap-2">
-              <BookOpen size={16} />
-              Competencia del Curso
-            </Label>
+            <Label htmlFor="courseCompetency">Competencia del Curso</Label>
             <Textarea
               id="courseCompetency"
               placeholder="Describa la competencia específica del curso..."
@@ -452,10 +359,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="prerequisites" className="flex items-center gap-2">
-              <ListTree size={16} />
-              Competencias Previas Requeridas
-            </Label>
+            <Label htmlFor="prerequisites">Competencias Previas Requeridas</Label>
             <Textarea
               id="prerequisites"
               placeholder="Ej. Conocimientos básicos de álgebra."
@@ -465,10 +369,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="summary" className="flex items-center gap-2">
-              <FileText size={16} />
-              Resumen del Curso
-            </Label>
+            <Label htmlFor="summary">Resumen del Curso</Label>
             <Textarea
               id="summary"
               placeholder="Proporcione un resumen conciso del curso..."
@@ -487,122 +388,158 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             <Library className="text-primary" />
             Unidades de Aprendizaje
           </CardTitle>
-          <CardDescription>Agregue y gestione las semanas de aprendizaje para cada unidad.</CardDescription>
+          <CardDescription>Defina las unidades de aprendizaje, sus capacidades, fechas y contenidos semanales.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {syllabus.learningUnits.map((unit, unitIndex) => (
             <div key={unit.id} className="p-4 border rounded-lg space-y-4 bg-background/50">
-              <div className="flex items-center justify-between">
-                <Input
-                  value={unit.name}
-                  onChange={(e) => handleUnitNameChange(unitIndex, e.target.value)}
-                  className="text-lg font-semibold flex-grow mr-4 border-0 shadow-none focus-visible:ring-0"
-                />
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleAddWeek(unitIndex)}
-                    aria-label="Agregar Semana"
-                  >
-                    <PlusCircle size={16} />
-                  </Button>
-                  {syllabus.learningUnits.length > 1 && (
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => handleDeleteUnit(unit.id)}
-                      aria-label="Eliminar Unidad"
-                    >
+              <div className="flex items-center justify-between gap-4 mb-4">
+                  <h3 className="text-lg font-semibold">Unidad {unitIndex + 1}</h3>
+                  <Button variant="destructive" size="icon" onClick={() => handleDeleteUnit(unit.id)} aria-label="Eliminar Unidad">
                       <Trash2 size={16} />
-                    </Button>
-                  )}
-                </div>
+                  </Button>
               </div>
 
-              {unit.weeks.map((week, weekIndex) => (
-                <div
-                  key={week.id}
-                  className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 items-start p-3 border-l-4 border-primary rounded-r-md bg-card"
-                >
-                  <div className="flex md:flex-col items-center gap-2">
-                    <span className="text-sm font-bold text-primary">
-                      Semana{' '}
-                      {syllabus.learningUnits
-                        .slice(0, unitIndex)
-                        .reduce((acc, u) => acc + u.weeks.length, 0) +
-                        weekIndex +
-                        1}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive h-7 w-7"
-                      onClick={() => handleDeleteWeek(unitIndex, week.id)}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                      <Label htmlFor={`unit-denomination-${unit.id}`}>Denominación</Label>
+                      <Input id={`unit-denomination-${unit.id}`} value={unit.denomination} onChange={(e) => handleUnitChange(unitIndex, 'denomination', e.target.value)} placeholder="Tecnologías para el desarrollo web" />
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
-                    <div className="space-y-1">
-                      <Label htmlFor={`topic-${week.id}`}>Tema/Subtema</Label>
-                      <Input
-                        id={`topic-${week.id}`}
-                        value={week.topic}
-                        onChange={(e) =>
-                          handleWeekChange(unitIndex, week.id, 'topic', e.target.value)
-                        }
-                        placeholder="Tema de la semana"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`activities-${week.id}`}>Actividades</Label>
-                      <Input
-                        id={`activities-${week.id}`}
-                        value={week.activities}
-                        onChange={(e) =>
-                          handleWeekChange(unitIndex, week.id, 'activities', e.target.value)
-                        }
-                        placeholder="Actividades de aprendizaje"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`evidence-${week.id}`}>Evidencias</Label>
-                      <Input
-                        id={`evidence-${week.id}`}
-                        value={week.evidence}
-                        onChange={(e) =>
-                          handleWeekChange(unitIndex, week.id, 'evidence', e.target.value)
-                        }
-                        placeholder="Evidencias de aprendizaje"
-                      />
-                    </div>
+                  <div className="space-y-2">
+                      <Label>Intervalo de Fechas</Label>
+                      <div className="flex items-center gap-2">
+                          <Popover>
+                              <PopoverTrigger asChild>
+                                  <Button variant={'outline'} className={cn('w-full justify-start text-left font-normal', !unit.startDate && 'text-muted-foreground')}>
+                                      <CalendarDays className="mr-2 h-4 w-4" />
+                                      {unit.startDate ? format(unit.startDate, 'LLL dd, y', { locale: es }) : <span>Fecha de inicio</span>}
+                                  </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={unit.startDate || undefined} onSelect={(date) => handleUnitChange(unitIndex, 'startDate', date)} initialFocus /></PopoverContent>
+                          </Popover>
+                          <span className="text-muted-foreground">-</span>
+                          <Popover>
+                              <PopoverTrigger asChild>
+                                  <Button variant={'outline'} className={cn('w-full justify-start text-left font-normal', !unit.endDate && 'text-muted-foreground')}>
+                                      <CalendarDays className="mr-2 h-4 w-4" />
+                                      {unit.endDate ? format(unit.endDate, 'LLL dd, y', { locale: es }) : <span>Fecha de fin</span>}
+                                  </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={unit.endDate || undefined} onSelect={(date) => handleUnitChange(unitIndex, 'endDate', date)} initialFocus /></PopoverContent>
+                          </Popover>
+                      </div>
                   </div>
-                </div>
-              ))}
-              {unit.weeks.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">
-                  No hay semanas en esta unidad. ¡Agregue una!
-                </p>
-              )}
+              </div>
+              
+              <div className="space-y-2">
+                  <Label htmlFor={`unit-capacity-${unit.id}`}>Enunciado de la capacidad a ser lograda por el estudiante</Label>
+                  <Textarea id={`unit-capacity-${unit.id}`} value={unit.studentCapacity} onChange={(e) => handleUnitChange(unitIndex, 'studentCapacity', e.target.value)} placeholder="El estudiante conoce y utiliza responsablemente las tecnologías..." />
+              </div>
+
+              <div className="border-t pt-4 mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-semibold">Semanas y Contenidos Específicos</h4>
+                      <Button variant="outline" size="sm" onClick={() => handleAddWeek(unitIndex)}><PlusCircle size={14} className="mr-2" /> Agregar Semana</Button>
+                  </div>
+                  <div className="space-y-2">
+                      {unit.weeks.map((week, weekIndex) => (
+                          <div key={week.id} className="flex items-start gap-2">
+                              <div className="flex items-center gap-2 pt-2">
+                                  <span className="font-semibold text-sm w-16">Semana {weekIndex + 1}</span>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteWeek(unitIndex, week.id)}><Trash2 size={14} /></Button>
+                              </div>
+                              <Textarea
+                                  value={week.specificContents}
+                                  onChange={(e) => handleWeekChange(unitIndex, weekIndex, e.target.value)}
+                                  placeholder="Contenidos específicos de la semana..."
+                                  className="flex-1"
+                                  rows={3}
+                              />
+                          </div>
+                      ))}
+                      {unit.weeks.length === 0 && <p className="text-center text-sm text-muted-foreground py-2">No hay semanas en esta unidad.</p>}
+                  </div>
+              </div>
             </div>
           ))}
-          <Button variant="outline" onClick={handleAddUnit} className="w-full">
+          <Button variant="outline" onClick={handleAddUnit} className="w-full mt-4">
             <PlusCircle size={16} className="mr-2" />
             Agregar Unidad de Aprendizaje
           </Button>
         </CardContent>
       </Card>
+      
+      {/* Evaluation Criteria */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Percent className="text-primary" />
+            Criterios de Evaluación
+          </CardTitle>
+          <CardDescription>Defina los criterios de evaluación, su peso, instrumento y fecha. El peso total debe sumar 100%.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[30%]">Evaluación</TableHead>
+                <TableHead className="w-[15%]">Peso (%)</TableHead>
+                <TableHead className="w-[35%]">Instrumento</TableHead>
+                <TableHead className="w-[15%]">Fecha</TableHead>
+                <TableHead className="w-[5%]">Acción</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {syllabus.evaluationCriteria.map((criterion, index) => (
+                <TableRow key={criterion.id}>
+                  <TableCell>
+                    <Input value={criterion.evaluation} onChange={(e) => handleCriterionChange(index, 'evaluation', e.target.value)} />
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" value={criterion.weight} onChange={(e) => handleCriterionChange(index, 'weight', e.target.valueAsNumber || 0)} />
+                  </TableCell>
+                  <TableCell>
+                    <Input value={criterion.instrument} onChange={(e) => handleCriterionChange(index, 'instrument', e.target.value)} />
+                  </TableCell>
+                  <TableCell>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant={'outline'} className={cn('w-full justify-start text-left font-normal', !criterion.date && 'text-muted-foreground')}>
+                                <CalendarDays className="mr-2 h-4 w-4" />
+                                {criterion.date ? format(criterion.date, 'LLL dd, y', { locale: es }) : <span>Elegir</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={criterion.date || undefined} onSelect={(date) => handleCriterionChange(index, 'date', date)} initialFocus /></PopoverContent>
+                    </Popover>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="destructive" size="icon" onClick={() => handleDeleteCriterion(criterion.id)}><Trash2 size={16} /></Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+                <TableRow>
+                    <TableCell className="font-bold">Total</TableCell>
+                    <TableCell className={cn("font-bold", totalEvaluationWeight !== 100 && "text-destructive")}>{totalEvaluationWeight}%</TableCell>
+                    <TableCell colSpan={3}></TableCell>
+                </TableRow>
+            </TableFooter>
+          </Table>
+          <Button onClick={handleAddCriterion} variant="outline" className="mt-4 w-full"><PlusCircle size={16} className="mr-2"/>Agregar Criterio</Button>
+        </CardContent>
+      </Card>
+
 
       {/* Methodology and References */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FlaskConical className="text-primary" />
-            Metodología y Referencias
+            Metodología y Fuentes de Consulta
           </CardTitle>
           <CardDescription>
-            Seleccione una metodología y valide sus referencias en formato APA.
+            Seleccione una metodología y valide sus fuentes de consulta en formato APA.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -641,17 +578,17 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             <div className="space-y-2">
               <Label htmlFor="apaReference" className="flex items-center gap-2">
                 <Quote size={16} />
-                Referencia Bibliográfica (APA)
+                Fuentes de Consulta Documental y Sitios Web
               </Label>
               <Textarea
                 id="apaReference"
                 value={syllabus.apaReference}
                 onChange={(e) => handleFieldChange('apaReference', e.target.value)}
-                placeholder="Pegue aquí su referencia en formato APA 7 para validación..."
+                placeholder="Pegue aquí sus referencias bibliográficas y sitios web para validación con IA..."
                 rows={4}
               />
             </div>
-            <Button onClick={handleValidateReference} disabled={isValidating}>
+            <Button onClick={handleValidateReference} disabled={isValidating || !syllabus.apaReference}>
               {isValidating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validando...

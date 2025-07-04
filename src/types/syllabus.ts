@@ -1,15 +1,25 @@
 export interface Week {
   id: number;
-  topic: string;
-  activities: string;
-  evidence: string;
+  specificContents: string;
 }
 
 export interface LearningUnit {
   id: number;
-  name: string;
+  denomination: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  studentCapacity: string;
   weeks: Week[];
 }
+
+export interface EvaluationCriterion {
+  id: number;
+  evaluation: string;
+  weight: number;
+  instrument: string;
+  date: Date | null;
+}
+
 
 export interface Syllabus {
   id?: string;
@@ -31,4 +41,5 @@ export interface Syllabus {
   customMethodology: string;
   apaReference: string;
   signaturePreview: string | null;
+  evaluationCriteria: EvaluationCriterion[];
 }

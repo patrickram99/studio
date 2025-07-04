@@ -9,15 +9,12 @@ interface PrintableSyllabusProps {
   syllabus: Syllabus;
 }
 
-const thStyle = "p-2 text-left font-semibold border-b-2 border-gray-600 bg-gray-100";
-const tdStyle = "p-2 text-left border-b border-gray-300";
+const thStyle = "p-2 text-left font-semibold border-b-2 border-gray-600 bg-gray-100 align-top";
+const tdStyle = "p-2 text-left border-b border-gray-300 align-top";
+const h2Style = "text-xl font-bold mb-4 border-b border-gray-400 pb-2";
 
 export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
-  const weekCounter = (() => {
-    let count = 0;
-    return () => ++count;
-  })();
-
+  
   return (
     <div className="font-sans text-sm text-gray-800 space-y-8">
       {/* Header */}
@@ -26,9 +23,9 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
         <p className="text-lg">Plan de Estudio</p>
       </div>
 
-      {/* General Information */}
+      {/* I. General Information */}
       <section>
-        <h2 className="text-xl font-bold mb-4 border-b border-gray-400 pb-2">1. Información General del Curso</h2>
+        <h2 className={h2Style}>I. Información General del Curso</h2>
         <table className="w-full border-collapse">
           <tbody>
             <tr>
@@ -57,68 +54,109 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
             </tr>
             <tr>
               <td className={`${tdStyle} font-semibold`}>Fecha de elaboración:</td>
-              <td className={tdStyle}>{format(new Date(syllabus.creationDate), 'dd \'de\' MMMM \'de\' yyyy', { locale: es })}</td>
+              <td className={tdStyle}>{syllabus.creationDate ? format(new Date(syllabus.creationDate), "dd 'de' MMMM 'de' yyyy", { locale: es }) : ''}</td>
             </tr>
              <tr>
               <td className={`${tdStyle} font-semibold`}>Fecha de última actualización:</td>
-              <td className={tdStyle}>{format(new Date(syllabus.updateDate), 'dd \'de\' MMMM \'de\' yyyy', { locale: es })}</td>
+              <td className={tdStyle}>{syllabus.updateDate ? format(new Date(syllabus.updateDate), "dd 'de' MMMM 'de' yyyy", { locale: es }) : ''}</td>
             </tr>
           </tbody>
         </table>
       </section>
 
-      {/* Competencies */}
+      {/* II. Competencies */}
       <section>
-        <h2 className="text-xl font-bold mb-4 border-b border-gray-400 pb-2">2. Gestión de Competencias</h2>
+        <h2 className={h2Style}>II. Gestión de Competencias</h2>
         <div className="space-y-4">
           <div>
             <h3 className="font-semibold mb-1">Competencia del Perfil de Egreso:</h3>
-            <p className="pl-4">{syllabus.graduateCompetency}</p>
+            <p className="pl-4 whitespace-pre-wrap">{syllabus.graduateCompetency}</p>
           </div>
           <div>
             <h3 className="font-semibold mb-1">Competencia del Curso:</h3>
-            <p className="pl-4">{syllabus.courseCompetency}</p>
+            <p className="pl-4 whitespace-pre-wrap">{syllabus.courseCompetency}</p>
           </div>
         </div>
       </section>
 
-      {/* Summary and Prerequisites */}
+      {/* III. Summary and Prerequisites */}
        <section>
-        <h2 className="text-xl font-bold mb-4 border-b border-gray-400 pb-2">3. Resumen y Prerrequisitos</h2>
+        <h2 className={h2Style}>III. Resumen y Prerrequisitos</h2>
         <div className="space-y-4">
           <div>
             <h3 className="font-semibold mb-1">Competencias Previas Requeridas:</h3>
-            <p className="pl-4">{syllabus.prerequisites}</p>
+            <p className="pl-4 whitespace-pre-wrap">{syllabus.prerequisites}</p>
           </div>
           <div>
             <h3 className="font-semibold mb-1">Resumen del Curso:</h3>
-            <p className="pl-4">{syllabus.summary}</p>
+            <p className="pl-4 whitespace-pre-wrap">{syllabus.summary}</p>
           </div>
         </div>
       </section>
+      
+       {/* IV. Methodology */}
+      <section>
+        <h2 className={h2Style}>IV. Metodología</h2>
+         <p className="pl-4">{syllabus.methodology === 'Otro' ? syllabus.customMethodology : syllabus.methodology}</p>
+      </section>
 
-      {/* Learning Units */}
+      {/* V. Evaluation Criteria */}
       <section className="break-after-page">
-        <h2 className="text-xl font-bold mb-4 border-b border-gray-400 pb-2">4. Unidades de Aprendizaje</h2>
+        <h2 className={h2Style}>V. Criterios de Evaluación</h2>
+        <table className="w-full border-collapse border border-gray-300">
+            <thead>
+                <tr>
+                    <th className={thStyle}>Evaluación</th>
+                    <th className={thStyle}>Peso (%)</th>
+                    <th className={thStyle}>Instrumento</th>
+                    <th className={thStyle}>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {syllabus.evaluationCriteria.map(criterion => (
+                    <tr key={criterion.id}>
+                        <td className={tdStyle}>{criterion.evaluation}</td>
+                        <td className={`${tdStyle} text-center`}>{criterion.weight}</td>
+                        <td className={tdStyle}>{criterion.instrument}</td>
+                        <td className={tdStyle}>{criterion.date ? format(new Date(criterion.date), 'dd/MM/yyyy') : 'N/A'}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+      </section>
+      
+      {/* VI. Learning Units */}
+      <section>
+        <h2 className={h2Style}>VI. Unidades de Aprendizaje</h2>
         {syllabus.learningUnits.map((unit, unitIndex) => (
-          <div key={unit.id} className="mb-6">
-            <h3 className="text-lg font-semibold mb-2 bg-gray-100 p-2 border border-gray-300">Unidad {unitIndex + 1}: {unit.name}</h3>
+          <div key={unit.id} className="mb-6 break-inside-avoid">
+            <h3 className="text-lg font-semibold mb-2 bg-gray-100 p-2 border border-gray-300">UNIDAD {unitIndex + 1}: {unit.denomination}</h3>
             <table className="w-full border-collapse border border-gray-300">
+                <tbody>
+                    <tr>
+                        <td className={`${tdStyle} font-semibold w-1/4`}>Intervalo de fechas:</td>
+                        <td className={tdStyle}>
+                            {unit.startDate ? format(new Date(unit.startDate), "dd 'de' MMMM", { locale: es }) : ''} al {unit.endDate ? format(new Date(unit.endDate), "dd 'de' MMMM 'de' yyyy", { locale: es }) : ''}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td className={`${tdStyle} font-semibold`}>Enunciado de la capacidad a ser lograda por el estudiante:</td>
+                        <td className={`${tdStyle} whitespace-pre-wrap`}>{unit.studentCapacity}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <table className="w-full border-collapse border border-gray-300 mt-[-1px]">
               <thead>
                 <tr>
-                  <th className={`${thStyle} w-[10%]`}>Semana</th>
-                  <th className={`${thStyle} w-[30%]`}>Tema/Subtema</th>
-                  <th className={`${thStyle} w-[30%]`}>Actividades</th>
-                  <th className={`${thStyle} w-[30%]`}>Evidencias</th>
+                  <th className={`${thStyle} w-1/5`}>Semana</th>
+                  <th className={`${thStyle} w-4/5`}>Contenidos Específicos</th>
                 </tr>
               </thead>
               <tbody>
-                {unit.weeks.map((week) => (
+                {unit.weeks.map((week, weekIndex) => (
                   <tr key={week.id}>
-                    <td className={`${tdStyle} text-center`}>{weekCounter()}</td>
-                    <td className={tdStyle}>{week.topic}</td>
-                    <td className={tdStyle}>{week.activities}</td>
-                    <td className={tdStyle}>{week.evidence}</td>
+                    <td className={`${tdStyle} text-center`}>{weekIndex + 1}</td>
+                    <td className={`${tdStyle} whitespace-pre-wrap`}>{week.specificContents}</td>
                   </tr>
                 ))}
               </tbody>
@@ -127,19 +165,10 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
         ))}
       </section>
 
-      {/* Methodology and References */}
+      {/* VII. References */}
       <section>
-        <h2 className="text-xl font-bold mb-4 border-b border-gray-400 pb-2">5. Metodología y Referencias</h2>
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-semibold mb-1">Metodología:</h3>
-            <p className="pl-4">{syllabus.methodology === 'Otro' ? syllabus.customMethodology : syllabus.methodology}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-1">Referencia Bibliográfica (APA):</h3>
-            <p className="pl-4 whitespace-pre-wrap">{syllabus.apaReference}</p>
-          </div>
-        </div>
+        <h2 className={h2Style}>VII. Fuentes de Consulta Documental y Sitios Web</h2>
+        <div className="pl-4 whitespace-pre-wrap">{syllabus.apaReference}</div>
       </section>
       
       {/* Signature */}
