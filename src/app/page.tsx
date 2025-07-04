@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { SyllabusForm } from '@/components/syllabus-form';
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut, FilePlus, Trash2, Menu, FileText } from 'lucide-react';
+import { Loader2, LogOut, FilePlus, Trash2, Menu, FilePenLine } from 'lucide-react';
 import type { Syllabus } from '@/types/syllabus';
 import {
   createSyllabusAction,
@@ -27,6 +27,7 @@ import {
   SidebarInset,
   SidebarMenuAction,
 } from '@/components/ui/sidebar';
+import { Input } from '@/components/ui/input';
 
 export default function Home() {
   const { user, loading, logout } = useAuth();
@@ -37,6 +38,9 @@ export default function Home() {
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [renamingSyllabusId, setRenamingSyllabusId] = useState<string | null>(null);
+  const [tempSyllabusName, setTempSyllabusName] = useState('');
+
 
   useEffect(() => {
     if (!loading && !user) {
@@ -108,8 +112,41 @@ export default function Home() {
     }
   };
 
+  const handleStartRename = (syllabusId: string, currentName: string) => {
+    setRenamingSyllabusId(syllabusId);
+    setTempSyllabusName(currentName);
+  };
+
+  const handleFinishRename = async (syllabusId: string) => {
+    const syllabusToUpdate = syllabuses.find(s => s.id === syllabusId);
+    if (!syllabusToUpdate) return;
+
+    if (!tempSyllabusName.trim()) {
+      toast({ variant: 'destructive', title: 'Error', description: 'El nombre del plan no puede estar vacío.' });
+      setRenamingSyllabusId(null);
+      return;
+    }
+
+    if (syllabusToUpdate.courseName !== tempSyllabusName) {
+      const updatedSyllabus = { ...syllabusToUpdate, courseName: tempSyllabusName };
+      
+      handleSyllabusChange(updatedSyllabus);
+
+      const { success, error } = await saveSyllabusAction(updatedSyllabus);
+      if (!success) {
+        toast({ variant: 'destructive', title: 'Error al renombrar', description: error });
+        handleSyllabusChange(syllabusToUpdate);
+      } else {
+        toast({ title: 'Éxito', description: 'Plan de estudios renombrado.' });
+      }
+    }
+    setRenamingSyllabusId(null);
+  };
+
   const handleSelectSyllabus = (syllabusId: string) => {
-    setSelectedSyllabusId(syllabusId);
+    if (renamingSyllabusId !== syllabusId) {
+        setSelectedSyllabusId(syllabusId);
+    }
   };
 
   const handleSyllabusChange = (updatedSyllabus: Syllabus) => {
@@ -141,18 +178,47 @@ export default function Home() {
             ) : (
               syllabuses.map((syllabus) => (
                 <SidebarMenuItem key={syllabus.id}>
-                  <SidebarMenuButton
-                    isActive={selectedSyllabusId === syllabus.id}
-                    onClick={() => handleSelectSyllabus(syllabus.id!)}
-                  >
-                    <span className="truncate">{syllabus.courseName}</span>
-                  </SidebarMenuButton>
-                  <SidebarMenuAction
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteSyllabus(syllabus.id!)}
-                  >
-                    <Trash2 size={14} />
-                  </SidebarMenuAction>
+                  {renamingSyllabusId === syllabus.id ? (
+                    <Input
+                      value={tempSyllabusName}
+                      onChange={(e) => setTempSyllabusName(e.target.value)}
+                      onBlur={() => handleFinishRename(syllabus.id!)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        if (e.key === 'Escape') setRenamingSyllabusId(null);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      autoFocus
+                      className="h-8 text-sm px-2 w-full"
+                    />
+                  ) : (
+                    <>
+                      <SidebarMenuButton
+                        isActive={selectedSyllabusId === syllabus.id}
+                        onClick={() => handleSelectSyllabus(syllabus.id!)}
+                      >
+                        <span className="truncate">{syllabus.courseName}</span>
+                      </SidebarMenuButton>
+                      <SidebarMenuAction
+                        className="right-8 text-muted-foreground hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartRename(syllabus.id!, syllabus.courseName);
+                        }}
+                      >
+                        <FilePenLine size={14} />
+                      </SidebarMenuAction>
+                      <SidebarMenuAction
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSyllabus(syllabus.id!);
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </SidebarMenuAction>
+                    </>
+                  )}
                 </SidebarMenuItem>
               ))
             )}
