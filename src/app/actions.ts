@@ -157,6 +157,7 @@ export async function getSyllabusesAction(
       return { syllabuses: [] }; 
     }
     const descriptiveError = `Error de base de datos (${error.code}). Verifique las reglas de Firestore y la conexión. Mensaje: ${error.message}`;
+    console.error("Error in getSyllabusesAction:", descriptiveError);
     return { syllabuses: [], error: descriptiveError };
   }
 }
