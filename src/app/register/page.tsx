@@ -27,10 +27,16 @@ export default function RegisterPage() {
       router.push('/');
     } catch (error: any) {
       console.error(error);
+      let description = "No se pudo crear la cuenta. Inténtelo de nuevo.";
+      if (error.code === 'auth/configuration-not-found') {
+        description = "La autenticación por correo electrónico y contraseña no está habilitada en su proyecto de Firebase. Por favor, habilítela en la consola de Firebase en la sección 'Authentication' -> 'Sign-in method'.";
+      } else if (error.message) {
+        description = error.message;
+      }
       toast({
         variant: "destructive",
         title: "Error de registro",
-        description: error.message || "No se pudo crear la cuenta. Inténtelo de nuevo.",
+        description: description,
       });
     } finally {
       setLoading(false);

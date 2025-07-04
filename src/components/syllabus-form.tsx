@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardList,
   FileSignature,
+  FileText,
   FlaskConical,
   GraduationCap,
   KeyRound,
