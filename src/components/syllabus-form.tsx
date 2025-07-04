@@ -100,9 +100,18 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     if (!newLearningUnits[unitIndex].weeks) {
         newLearningUnits[unitIndex].weeks = [];
     }
-    newLearningUnits[unitIndex].weeks.push({
+    
+    const weeks = newLearningUnits[unitIndex].weeks;
+    const newWeekNumber = weeks.length + 1;
+    let specificContents = '';
+
+    if (newWeekNumber === 9) {
+      specificContents = 'Examen Parcial';
+    }
+
+    weeks.push({
       id: Date.now(),
-      specificContents: '',
+      specificContents: specificContents,
     });
     onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
   };
@@ -597,13 +606,27 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
               {(syllabus.evaluationCriteria || []).map((criterion, index) => (
                 <TableRow key={criterion.id}>
                   <TableCell>
-                    <Input readOnly value={criterion.evaluation} className="bg-muted/50" />
+                    <Input 
+                        value={criterion.evaluation} 
+                        onChange={(e) => handleCriterionChange(index, 'evaluation', e.target.value)}
+                        placeholder="Ej. Evaluación Parcial 1"
+                    />
                   </TableCell>
                   <TableCell>
-                    <Input readOnly type="number" value={criterion.weight} className="bg-muted/50 text-center" />
+                    <Input 
+                        type="number" 
+                        value={criterion.weight} 
+                        onChange={(e) => handleCriterionChange(index, 'weight', Number(e.target.value))}
+                        className="text-center"
+                        placeholder="20"
+                    />
                   </TableCell>
                   <TableCell>
-                    <Input value={criterion.instrument} onChange={(e) => handleCriterionChange(index, 'instrument', e.target.value)} placeholder="Ej. Examen escrito" />
+                    <Input 
+                        value={criterion.instrument} 
+                        onChange={(e) => handleCriterionChange(index, 'instrument', e.target.value)} 
+                        placeholder="Ej. Examen escrito" 
+                    />
                   </TableCell>
                   <TableCell>
                      <Popover>
@@ -632,7 +655,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
                 </TableRow>
             </TableFooter>
           </Table>
-          <Button onClick={handleAddCriterion} variant="outline" className="mt-4 w-full"><PlusCircle size={16} className="mr-2"/>Agregar Criterio (Modificable)</Button>
+          <Button onClick={handleAddCriterion} variant="outline" className="mt-4 w-full"><PlusCircle size={16} className="mr-2"/>Agregar Criterio</Button>
         </CardContent>
       </Card>
 
