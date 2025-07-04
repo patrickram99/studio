@@ -44,12 +44,13 @@ export default function Home() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) {
+    // This check is now more robust, ensuring user and user.uid exist before fetching data.
+    if (user && user.uid) {
       setIsDataLoading(true);
       getSyllabusesAction(user.uid)
         .then(({ syllabuses: loadedSyllabuses, error }) => {
           if (error) {
-            toast({ variant: 'destructive', title: 'Error', description: error });
+            toast({ variant: 'destructive', title: 'Error al cargar datos', description: error });
           } else {
             setSyllabuses(loadedSyllabuses);
             if (loadedSyllabuses.length > 0) {
@@ -58,6 +59,9 @@ export default function Home() {
           }
         })
         .finally(() => setIsDataLoading(false));
+    } else if (!loading) {
+      // If the user is not logged in and we are not in a loading state, stop the data loading indicator.
+      setIsDataLoading(false);
     }
   }, [user, toast]);
   
