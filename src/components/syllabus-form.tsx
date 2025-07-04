@@ -226,8 +226,8 @@ export function SyllabusForm({ syllabus, allUsers, onSyllabusChange, onSave }: S
     if (!syllabus.periodoLectivo.trim()) missingFields.push('Periodo Lectivo');
     if (!syllabus.semestre.trim()) missingFields.push('Semestre');
     if (!syllabus.numeroDeCreditos.trim()) missingFields.push('Nro. de Créditos');
-    if (!syllabus.numeroDeHoras.teoria.trim()) missingFields.push('Horas de Teoría');
-    if (!syllabus.numeroDeHoras.practica.trim()) missingFields.push('Horas de Práctica');
+    if (!syllabus.numeroDeHoras?.teoria?.trim()) missingFields.push('Horas de Teoría');
+    if (!syllabus.numeroDeHoras?.practica?.trim()) missingFields.push('Horas de Práctica');
     if (!syllabus.areaDeFormacion.trim()) missingFields.push('Área de Formación');
     if (!syllabus.codigoDelCurso.trim()) missingFields.push('Código del Curso');
     if (!syllabus.tipoDeCurso.trim()) missingFields.push('Tipo de Curso');
@@ -330,8 +330,8 @@ export function SyllabusForm({ syllabus, allUsers, onSyllabusChange, onSave }: S
               <div className="space-y-2">
                 <Label>Nro. de Horas</Label>
                 <div className="flex gap-2">
-                  <Input type="number" value={syllabus.numeroDeHoras.teoria} onChange={(e) => handleNestedFieldChange('numeroDeHoras', 'teoria', e.target.value)} placeholder="Teoría" aria-label="Horas de teoría" />
-                  <Input type="number" value={syllabus.numeroDeHoras.practica} onChange={(e) => handleNestedFieldChange('numeroDeHoras', 'practica', e.target.value)} placeholder="Práctica" aria-label="Horas de práctica"/>
+                  <Input type="number" value={syllabus.numeroDeHoras?.teoria || ''} onChange={(e) => handleNestedFieldChange('numeroDeHoras', 'teoria', e.target.value)} placeholder="Teoría" aria-label="Horas de teoría" />
+                  <Input type="number" value={syllabus.numeroDeHoras?.practica || ''} onChange={(e) => handleNestedFieldChange('numeroDeHoras', 'practica', e.target.value)} placeholder="Práctica" aria-label="Horas de práctica"/>
                 </div>
               </div>
             </div>
