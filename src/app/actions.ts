@@ -127,24 +127,16 @@ export async function saveSyllabusAction(
 export async function getSyllabusesAction(
   userId: string
 ): Promise<{ syllabuses: Syllabus[]; error?: string }> {
-  console.log(`[Action] Attempting to fetch syllabuses for userId: ${userId}`);
-  
   if (!db) {
-    const errorMessage = 'La base de datos no está configurada.';
-    console.error(`[Action] Error: ${errorMessage}`);
-    return { syllabuses: [], error: errorMessage };
+    return { syllabuses: [], error: 'La base de datos no está configurada.' };
   }
-
   if (!userId) {
-    const errorMessage = 'Usuario no autenticado (userId is missing).';
-    console.error(`[Action] Error: ${errorMessage}`);
-    return { syllabuses: [], error: errorMessage };
+    return { syllabuses: [], error: 'Usuario no autenticado (userId is missing).' };
   }
 
   try {
     const q = query(collection(db, 'syllabuses'), where('userId', '==', userId));
     const querySnapshot = await getDocs(q);
-    console.log(`[Action] Query successful. Found ${querySnapshot.docs.length} documents.`);
 
     const syllabuses = querySnapshot.docs.map((docSnap) => {
       const data = docSnap.data();
@@ -158,7 +150,12 @@ export async function getSyllabusesAction(
 
     return { syllabuses };
   } catch (error: any) {
-    console.error(`[Action] Firestore query failed. Code: ${error.code}, Message: ${error.message}`);
+    // This is the most likely cause for new users or incorrect rules.
+    if (error.code === 'permission-denied') {
+      // If permission is denied for a new user, it's safe to assume they have no syllabuses yet.
+      // We return an empty array to allow the UI to render the "Create a new syllabus" state.
+      return { syllabuses: [] }; 
+    }
     const descriptiveError = `Error de base de datos (${error.code}). Verifique las reglas de Firestore y la conexión. Mensaje: ${error.message}`;
     return { syllabuses: [], error: descriptiveError };
   }

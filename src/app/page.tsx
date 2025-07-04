@@ -46,22 +46,21 @@ export default function Home() {
   useEffect(() => {
     if (user && user.uid) {
       setIsDataLoading(true);
-      console.log('Auth state confirmed. Fetching syllabuses for user:', user.uid);
       getSyllabusesAction(user.uid)
         .then(({ syllabuses: loadedSyllabuses, error }) => {
           if (error) {
-            console.error('Error received from getSyllabusesAction:', error);
             toast({ variant: 'destructive', title: 'Error al cargar datos', description: error });
           } else {
             setSyllabuses(loadedSyllabuses);
             if (loadedSyllabuses.length > 0) {
               setSelectedSyllabusId(loadedSyllabuses[0].id!);
+            } else {
+              setSelectedSyllabusId(null);
             }
           }
         })
         .finally(() => setIsDataLoading(false));
     } else if (!loading) {
-      console.log('User not available, stopping data loading.');
       setIsDataLoading(false);
     }
   }, [user, loading, toast]);
