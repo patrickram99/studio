@@ -5,7 +5,6 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
   ClipboardList,
   FileSignature,
   FileText,
@@ -60,17 +59,43 @@ export function SyllabusForm() {
   const { toast } = useToast();
   
   // State for all form fields
+  const [courseName, setCourseName] = useState('Introducción a la Inteligencia Artificial');
+  const [courseKey, setCourseKey] = useState('CS401');
+  const [credits, setCredits] = useState('8');
+  const [theoryHours, setTheoryHours] = useState('4');
+  const [practiceHours, setPracticeHours] = useState('4');
+  const [author, setAuthor] = useState('Claude Shannon');
+
   const [creationDate, setCreationDate] = useState<Date | undefined>(new Date());
   const [updateDate, setUpdateDate] = useState<Date | undefined>(new Date());
 
+  const [graduateCompetency, setGraduateCompetency] = useState('Diseña y desarrolla sistemas inteligentes que resuelven problemas complejos en diversos dominios, considerando implicaciones éticas y sociales.');
+  const [courseCompetency, setCourseCompetency] = useState('Aplica los principios fundamentales del aprendizaje automático para construir y evaluar modelos predictivos, y comprende los algoritmos básicos de la IA.');
+  const [prerequisites, setPrerequisites] = useState('Conocimientos sólidos de programación (Python), álgebra lineal, probabilidad y estadística.');
+  const [summary, setSummary] = useState('Este curso ofrece una introducción completa a los conceptos y técnicas de la inteligencia artificial. Los temas incluyen agentes inteligentes, búsqueda, representación del conocimiento, incertidumbre, aprendizaje automático y procesamiento del lenguaje natural.');
+
   const [learningUnits, setLearningUnits] = useState<LearningUnit[]>([
-    { id: 1, name: 'Unidad de Aprendizaje 1', weeks: [] },
+    {
+      id: 1,
+      name: 'Introducción a la IA y Agentes Inteligentes',
+      weeks: [
+        { id: 1, topic: 'Historia y fundamentos de la IA', activities: 'Clase teórica y debate sobre el futuro de la IA.', evidence: 'Ensayo corto.' },
+        { id: 2, topic: 'Agentes inteligentes', activities: 'Diseño de un agente simple en pseudocódigo.', evidence: 'Diagrama de agente.' },
+      ],
+    },
+    {
+      id: 2,
+      name: 'Resolución de problemas con búsqueda',
+      weeks: [
+        { id: 3, topic: 'Búsqueda no informada (BFS, DFS)', activities: 'Ejercicios de implementación de algoritmos de búsqueda.', evidence: 'Código de algoritmos de búsqueda.' },
+      ],
+    },
   ]);
 
-  const [methodology, setMethodology] = useState('');
+  const [methodology, setMethodology] = useState('ABP');
   const [customMethodology, setCustomMethodology] = useState('');
 
-  const [apaReference, setApaReference] = useState('');
+  const [apaReference, setApaReference] = useState('Russell, S. J., & Norvig, P. (2020). Artificial intelligence: A modern approach (4th ed.). Pearson.');
   const [validationResult, setValidationResult] = useState<ValidateApaReferenceOutput | null>(null);
   const [isValidating, setIsValidating] = useState(false);
 
@@ -195,27 +220,27 @@ export function SyllabusForm() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="space-y-2">
             <Label htmlFor="courseName" className="flex items-center gap-2"><BookOpen size={16} />Nombre del curso</Label>
-            <Input id="courseName" placeholder="Ej. Cálculo Diferencial" />
+            <Input id="courseName" placeholder="Ej. Cálculo Diferencial" value={courseName} onChange={e => setCourseName(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="courseKey" className="flex items-center gap-2"><KeyRound size={16} />Clave</Label>
-            <Input id="courseKey" placeholder="Ej. 1011" />
+            <Input id="courseKey" placeholder="Ej. 1011" value={courseKey} onChange={e => setCourseKey(e.target.value)}/>
           </div>
           <div className="space-y-2">
             <Label htmlFor="credits" className="flex items-center gap-2"><Sparkles size={16} />Créditos</Label>
-            <Input id="credits" type="number" placeholder="Ej. 8" />
+            <Input id="credits" type="number" placeholder="Ej. 8" value={credits} onChange={e => setCredits(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="theoryHours" className="flex items-center gap-2"><BookOpen size={16} />Horas teóricas</Label>
-            <Input id="theoryHours" type="number" placeholder="Ej. 4" />
+            <Input id="theoryHours" type="number" placeholder="Ej. 4" value={theoryHours} onChange={e => setTheoryHours(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="practiceHours" className="flex items-center gap-2"><FlaskConical size={16} />Horas prácticas</Label>
-            <Input id="practiceHours" type="number" placeholder="Ej. 2" />
+            <Input id="practiceHours" type="number" placeholder="Ej. 2" value={practiceHours} onChange={e => setPracticeHours(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="author" className="flex items-center gap-2"><User size={16} />Elaboró</Label>
-            <Input id="author" placeholder="Nombre del profesor" />
+            <Input id="author" placeholder="Nombre del profesor" value={author} onChange={e => setAuthor(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-2"><CalendarDays size={16} />Fecha de elaboración</Label>
@@ -272,11 +297,11 @@ export function SyllabusForm() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="graduateCompetency" className="flex items-center gap-2"><GraduationCap size={16} />Competencia del Perfil de Egreso</Label>
-            <Textarea id="graduateCompetency" placeholder="Describa la competencia del perfil de egreso..." rows={4} />
+            <Textarea id="graduateCompetency" placeholder="Describa la competencia del perfil de egreso..." rows={4} value={graduateCompetency} onChange={e => setGraduateCompetency(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="courseCompetency" className="flex items-center gap-2"><BookOpen size={16} />Competencia del Curso</Label>
-            <Textarea id="courseCompetency" placeholder="Describa la competencia específica del curso..." rows={4} />
+            <Textarea id="courseCompetency" placeholder="Describa la competencia específica del curso..." rows={4} value={courseCompetency} onChange={e => setCourseCompetency(e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -293,11 +318,11 @@ export function SyllabusForm() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
                 <Label htmlFor="prerequisites" className="flex items-center gap-2"><ListTree size={16} />Competencias Previas Requeridas</Label>
-                <Textarea id="prerequisites" placeholder="Ej. Conocimientos básicos de álgebra." rows={4} />
+                <Textarea id="prerequisites" placeholder="Ej. Conocimientos básicos de álgebra." rows={4} value={prerequisites} onChange={e => setPrerequisites(e.target.value)} />
             </div>
             <div className="space-y-2">
                 <Label htmlFor="summary" className="flex items-center gap-2"><FileText size={16} />Resumen del Curso</Label>
-                <Textarea id="summary" placeholder="Proporcione un resumen conciso del curso..." rows={4} />
+                <Textarea id="summary" placeholder="Proporcione un resumen conciso del curso..." rows={4} value={summary} onChange={e => setSummary(e.target.value)} />
             </div>
         </CardContent>
       </Card>
