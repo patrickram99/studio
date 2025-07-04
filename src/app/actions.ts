@@ -11,6 +11,7 @@ import {
   doc,
   setDoc,
   getDocs,
+  getDoc,
   addDoc,
   deleteDoc,
   collection,
@@ -165,5 +166,37 @@ export async function deleteSyllabusAction(
   } catch (error: any) {
     console.error('Error deleting syllabus:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Fetches a single syllabus by its ID.
+ */
+export async function getSyllabusByIdAction(
+  syllabusId: string
+): Promise<{ syllabus: Syllabus | null; error?: string }> {
+  if (!db) return { syllabus: null, error: 'La base de datos no está configurada.' };
+  if (!syllabusId) return { syllabus: null, error: 'Se requiere el ID del plan de estudios.' };
+
+  try {
+    const docRef = doc(db, 'syllabuses', syllabusId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { syllabus: null, error: 'No se encontró el plan de estudios.' };
+    }
+
+    const data = docSnap.data();
+    const syllabus: Syllabus = {
+      ...data,
+      id: docSnap.id,
+      creationDate: (data.creationDate as Timestamp).toDate(),
+      updateDate: (data.updateDate as Timestamp).toDate(),
+    };
+
+    return { syllabus };
+  } catch (error: any) {
+    console.error('Error getting syllabus by ID:', error);
+    return { syllabus: null, error: error.message };
   }
 }

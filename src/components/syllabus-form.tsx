@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, ChangeEvent, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
   BookOpen,
   CalendarDays,
@@ -15,6 +16,7 @@ import {
   ListTree,
   Loader2,
   PlusCircle,
+  Printer,
   Quote,
   Save,
   Sparkles,
@@ -679,8 +681,11 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save />}
           {isSaving ? 'Guardando...' : 'Guardar Progreso'}
         </Button>
-        <Button size="lg" disabled>
-          Generar y Exportar PDF
+        <Button size="lg" asChild>
+          <Link href={`/print/${syllabus.id}`} target="_blank">
+            <Printer className="mr-2" />
+            Generar y Exportar PDF
+          </Link>
         </Button>
       </div>
     </div>
