@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { SyllabusForm } from '@/components/syllabus-form';
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut, FilePlus, Trash2, Menu } from 'lucide-react';
+import { Loader2, LogOut, FilePlus, Trash2, Menu, FileText } from 'lucide-react';
 import type { Syllabus } from '@/types/syllabus';
 import {
   createSyllabusAction,
@@ -25,6 +25,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
+  SidebarMenuAction,
 } from '@/components/ui/sidebar';
 
 export default function Home() {
@@ -143,21 +144,15 @@ export default function Home() {
                   <SidebarMenuButton
                     isActive={selectedSyllabusId === syllabus.id}
                     onClick={() => handleSelectSyllabus(syllabus.id!)}
-                    className="justify-between"
                   >
                     <span className="truncate">{syllabus.courseName}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive hover:bg-destructive/10 shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSyllabus(syllabus.id!);
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
                   </SidebarMenuButton>
+                  <SidebarMenuAction
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteSyllabus(syllabus.id!)}
+                  >
+                    <Trash2 size={14} />
+                  </SidebarMenuAction>
                 </SidebarMenuItem>
               ))
             )}
