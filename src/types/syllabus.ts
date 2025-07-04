@@ -12,6 +12,8 @@ export interface LearningUnit {
 }
 
 export interface Syllabus {
+  id?: string;
+  userId?: string;
   courseName: string;
   courseKey: string;
   credits: string;
@@ -29,5 +31,4 @@ export interface Syllabus {
   customMethodology: string;
   apaReference: string;
   signaturePreview: string | null;
-  userId?: string;
 }
