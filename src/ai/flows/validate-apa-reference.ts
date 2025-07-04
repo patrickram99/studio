@@ -17,8 +17,8 @@ const ValidateApaReferenceInputSchema = z.object({
 export type ValidateApaReferenceInput = z.infer<typeof ValidateApaReferenceInputSchema>;
 
 const ValidateApaReferenceOutputSchema = z.object({
-  isValid: z.boolean().describe('Whether the APA reference is valid or not.'),
-  feedback: z.string().describe('Feedback on the APA reference, including errors and suggestions.'),
+  isValid: z.boolean().describe('Indica si la referencia APA es válida o no.'),
+  feedback: z.string().describe('Comentarios sobre la referencia APA, incluyendo errores y sugerencias de corrección. Debe estar en español.'),
 });
 export type ValidateApaReferenceOutput = z.infer<typeof ValidateApaReferenceOutputSchema>;
 
@@ -30,11 +30,11 @@ const validateApaReferencePrompt = ai.definePrompt({
   name: 'validateApaReferencePrompt',
   input: {schema: ValidateApaReferenceInputSchema},
   output: {schema: ValidateApaReferenceOutputSchema},
-  prompt: `You are an expert in APA style referencing.  You will be given a reference, and your job is to determine if it is valid, and return feedback on it, including errors and suggestions.
+  prompt: `Eres un experto en el estilo de citación APA. Se te proporcionará una referencia y tu trabajo es determinar si es válida y devolver comentarios sobre ella, incluyendo errores y sugerencias para corregirla. Responde siempre en español.
 
-Reference to validate:
+Referencia a validar:
 
-{{referenceText}}`,
+{{{referenceText}}}`,
 });
 
 const validateApaReferenceFlow = ai.defineFlow(

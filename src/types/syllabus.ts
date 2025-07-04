@@ -1,3 +1,5 @@
+import type { ValidateApaReferenceOutput } from "@/ai/flows/validate-apa-reference";
+
 export interface Week {
   id: number;
   specificContents: string;
@@ -10,6 +12,10 @@ export interface LearningUnit {
   endDate: Date | null;
   studentCapacity: string;
   weeks: Week[];
+  methodology: string;
+  customMethodology: string;
+  apaReference: string;
+  validationResult: ValidateApaReferenceOutput | null;
 }
 
 export interface EvaluationCriterion {
@@ -37,9 +43,6 @@ export interface Syllabus {
   prerequisites: string;
   summary: string;
   learningUnits: LearningUnit[];
-  methodology: string;
-  customMethodology: string;
-  apaReference: string;
   signaturePreview: string | null;
   evaluationCriteria: EvaluationCriterion[];
 }

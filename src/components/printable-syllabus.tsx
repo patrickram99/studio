@@ -12,6 +12,8 @@ interface PrintableSyllabusProps {
 const thStyle = "p-2 text-left font-semibold border-b-2 border-gray-600 bg-gray-100 align-top";
 const tdStyle = "p-2 text-left border-b border-gray-300 align-top";
 const h2Style = "text-xl font-bold mb-4 border-b border-gray-400 pb-2";
+const h3Style = "text-lg font-semibold mb-2 bg-gray-100 p-2 border border-gray-300";
+const h4Style = "font-semibold my-2";
 
 export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
   
@@ -94,15 +96,9 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
         </div>
       </section>
       
-       {/* IV. Methodology */}
-      <section>
-        <h2 className={h2Style}>IV. Metodología</h2>
-         <p className="pl-4">{syllabus.methodology === 'Otro' ? syllabus.customMethodology : syllabus.methodology}</p>
-      </section>
-
-      {/* V. Evaluation Criteria */}
+      {/* IV. Evaluation Criteria */}
       <section className="break-after-page">
-        <h2 className={h2Style}>V. Criterios de Evaluación</h2>
+        <h2 className={h2Style}>IV. Criterios de Evaluación</h2>
         <table className="w-full border-collapse border border-gray-300">
             <thead>
                 <tr>
@@ -113,7 +109,7 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
                 </tr>
             </thead>
             <tbody>
-                {syllabus.evaluationCriteria.map(criterion => (
+                {(syllabus.evaluationCriteria || []).map(criterion => (
                     <tr key={criterion.id}>
                         <td className={tdStyle}>{criterion.evaluation}</td>
                         <td className={`${tdStyle} text-center`}>{criterion.weight}</td>
@@ -125,12 +121,12 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
         </table>
       </section>
       
-      {/* VI. Learning Units */}
+      {/* V. Learning Units */}
       <section>
-        <h2 className={h2Style}>VI. Unidades de Aprendizaje</h2>
-        {syllabus.learningUnits.map((unit, unitIndex) => (
+        <h2 className={h2Style}>V. Unidades de Aprendizaje</h2>
+        {(syllabus.learningUnits || []).map((unit, unitIndex) => (
           <div key={unit.id} className="mb-6 break-inside-avoid">
-            <h3 className="text-lg font-semibold mb-2 bg-gray-100 p-2 border border-gray-300">UNIDAD {unitIndex + 1}: {unit.denomination}</h3>
+            <h3 className={h3Style}>UNIDAD {unitIndex + 1}: {unit.denomination}</h3>
             <table className="w-full border-collapse border border-gray-300">
                 <tbody>
                     <tr>
@@ -145,6 +141,8 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
                     </tr>
                 </tbody>
             </table>
+            
+            <h4 className={h4Style}>Semanas y Contenidos Específicos</h4>
             <table className="w-full border-collapse border border-gray-300 mt-[-1px]">
               <thead>
                 <tr>
@@ -153,7 +151,7 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
                 </tr>
               </thead>
               <tbody>
-                {unit.weeks.map((week, weekIndex) => (
+                {(unit.weeks || []).map((week, weekIndex) => (
                   <tr key={week.id}>
                     <td className={`${tdStyle} text-center`}>{weekIndex + 1}</td>
                     <td className={`${tdStyle} whitespace-pre-wrap`}>{week.specificContents}</td>
@@ -161,14 +159,19 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
                 ))}
               </tbody>
             </table>
+
+            <div className="mt-4">
+              <h4 className={h4Style}>Metodología</h4>
+              <p className="pl-4">{unit.methodology === 'Otro' ? unit.customMethodology : unit.methodology}</p>
+            </div>
+
+            <div className="mt-4">
+              <h4 className={h4Style}>Fuentes de Consulta Documental y Sitios Web</h4>
+              <div className="pl-4 whitespace-pre-wrap">{unit.apaReference}</div>
+            </div>
+
           </div>
         ))}
-      </section>
-
-      {/* VII. References */}
-      <section>
-        <h2 className={h2Style}>VII. Fuentes de Consulta Documental y Sitios Web</h2>
-        <div className="pl-4 whitespace-pre-wrap">{syllabus.apaReference}</div>
       </section>
       
       {/* Signature */}

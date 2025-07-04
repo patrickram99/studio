@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, ChangeEvent, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   BookOpen,
   CalendarDays,
@@ -9,9 +9,7 @@ import {
   FileSignature,
   FlaskConical,
   GraduationCap,
-  KeyRound,
   Library,
-  ListTree,
   Loader2,
   PlusCircle,
   Printer,
@@ -20,7 +18,6 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  User,
   Users,
   XCircle,
   Percent,
@@ -30,14 +27,13 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { validateReferenceAction } from '@/app/actions';
-import type { ValidateApaReferenceOutput } from '@/ai/flows/validate-apa-reference';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
@@ -54,8 +50,7 @@ interface SyllabusFormProps {
 export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFormProps) {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [validationResult, setValidationResult] = useState<ValidateApaReferenceOutput | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
+  const [validatingUnitIndex, setValidatingUnitIndex] = useState<number | null>(null);
 
   const handleFieldChange = (field: keyof Syllabus, value: any) => {
     onSyllabusChange({ ...syllabus, [field]: value });
@@ -85,6 +80,10 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
         endDate: null,
         studentCapacity: '',
         weeks: [],
+        methodology: 'ABP',
+        customMethodology: '',
+        apaReference: '',
+        validationResult: null,
       },
     ];
     onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
@@ -154,7 +153,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     onSyllabusChange({ ...syllabus, evaluationCriteria: newCriteria });
   };
 
-  const handleSignatureChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -165,12 +164,18 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     }
   };
 
-  const handleValidateReference = async () => {
-    setIsValidating(true);
-    setValidationResult(null);
-    const result = await validateReferenceAction(syllabus.apaReference);
-    setValidationResult(result);
-    setIsValidating(false);
+  const handleValidateReference = async (unitIndex: number) => {
+    setValidatingUnitIndex(unitIndex);
+    const unit = (syllabus.learningUnits || [])[unitIndex];
+    if (!unit) return;
+
+    const result = await validateReferenceAction(unit.apaReference);
+    
+    const newLearningUnits = [...(syllabus.learningUnits || [])];
+    newLearningUnits[unitIndex].validationResult = result;
+    onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
+
+    setValidatingUnitIndex(null);
   };
 
   const handleSave = async () => {
@@ -197,7 +202,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     const {
       courseName, courseKey, credits, theoryHours, practiceHours, author,
       graduateCompetency, courseCompetency, prerequisites, summary,
-      learningUnits, methodology, customMethodology, apaReference, evaluationCriteria
+      learningUnits, evaluationCriteria
     } = syllabus;
 
     if (!courseName.trim()) missingFields.push('Nombre del curso');
@@ -210,9 +215,6 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     if (!courseCompetency.trim()) missingFields.push('Competencia del Curso');
     if (!prerequisites.trim()) missingFields.push('Competencias Previas Requeridas');
     if (!summary.trim()) missingFields.push('Resumen del Curso');
-    if (!methodology) missingFields.push('Metodología');
-    if (methodology === 'Otro' && !customMethodology.trim()) missingFields.push('Especifique la metodología');
-    if (!apaReference.trim()) missingFields.push('Fuentes de consulta');
     
     if (totalEvaluationWeight !== 100) missingFields.push('El peso total de evaluación debe ser 100%');
     if ((evaluationCriteria || []).some(c => !c.evaluation.trim() || !c.instrument.trim() || !c.date)) {
@@ -220,7 +222,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     }
 
     if ((learningUnits || []).length === 0) {
-      missingFields.push('Unidades de Aprendizaje');
+      missingFields.push('Al menos una Unidad de Aprendizaje');
     } else {
         let unitError = false;
         for (const unit of (learningUnits || [])) {
@@ -232,9 +234,21 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
                 unitError = true;
                 break;
             }
+            if (!unit.methodology) {
+              unitError = true;
+              break;
+            }
+            if (unit.methodology === 'Otro' && !unit.customMethodology.trim()) {
+              unitError = true;
+              break;
+            }
+            if (!unit.apaReference.trim()) {
+              unitError = true;
+              break;
+            }
         }
         if (unitError) {
-            missingFields.push('Todas las Unidades de Aprendizaje y sus semanas deben estar completas');
+            missingFields.push('Todas las Unidades de Aprendizaje y sus subsecciones (metodología, semanas, etc.) deben estar completas');
         }
     }
 
@@ -398,12 +412,12 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             <Library className="text-primary" />
             Unidades de Aprendizaje
           </CardTitle>
-          <CardDescription>Defina las unidades de aprendizaje, sus capacidades, fechas y contenidos semanales.</CardDescription>
+          <CardDescription>Defina las unidades, sus capacidades, semanas, metodología y fuentes de consulta.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {(syllabus.learningUnits || []).map((unit, unitIndex) => (
-            <div key={unit.id} className="p-4 border rounded-lg space-y-4 bg-background/50">
-              <div className="flex items-center justify-between gap-4 mb-4">
+            <div key={unit.id} className="p-4 border rounded-lg space-y-6 bg-background/50">
+              <div className="flex items-center justify-between gap-4">
                   <h3 className="text-lg font-semibold">Unidad {unitIndex + 1}</h3>
                   <Button variant="destructive" size="icon" onClick={() => handleDeleteUnit(unit.id)} aria-label="Eliminar Unidad">
                       <Trash2 size={16} />
@@ -445,8 +459,9 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
                   <Label htmlFor={`unit-capacity-${unit.id}`}>Enunciado de la capacidad a ser lograda por el estudiante</Label>
                   <Textarea id={`unit-capacity-${unit.id}`} value={unit.studentCapacity} onChange={(e) => handleUnitChange(unitIndex, 'studentCapacity', e.target.value)} placeholder="El estudiante conoce y utiliza responsablemente las tecnologías..." />
               </div>
-
-              <div className="border-t pt-4 mt-4">
+              
+              {/* Weeks Section */}
+              <div className="border-t pt-4">
                   <div className="flex justify-between items-center mb-2">
                       <h4 className="font-semibold">Semanas y Contenidos Específicos</h4>
                       <Button variant="outline" size="sm" onClick={() => handleAddWeek(unitIndex)}><PlusCircle size={14} className="mr-2" /> Agregar Semana</Button>
@@ -469,6 +484,85 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
                       ))}
                       {(unit.weeks || []).length === 0 && <p className="text-center text-sm text-muted-foreground py-2">No hay semanas en esta unidad.</p>}
                   </div>
+              </div>
+              
+              {/* Methodology and References Section */}
+              <div className="border-t pt-4 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`methodology-${unit.id}`} className="flex items-center gap-2"><FlaskConical size={16}/> Metodología</Label>
+                    <Select
+                      onValueChange={(value) => handleUnitChange(unitIndex, 'methodology', value)}
+                      value={unit.methodology}
+                    >
+                      <SelectTrigger id={`methodology-${unit.id}`}>
+                        <SelectValue placeholder="Seleccione una metodología" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ABP">Aprendizaje Basado en Proyectos</SelectItem>
+                        <SelectItem value="ABPr">Aprendizaje Basado en Problemas</SelectItem>
+                        <SelectItem value="EC">Estudio de Caso</SelectItem>
+                        <SelectItem value="Otro">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {unit.methodology === 'Otro' && (
+                    <div className="space-y-2 animate-in fade-in">
+                      <Label htmlFor={`customMethodology-${unit.id}`}>Especifique la metodología</Label>
+                      <Input
+                        id={`customMethodology-${unit.id}`}
+                        value={unit.customMethodology}
+                        onChange={(e) => handleUnitChange(unitIndex, 'customMethodology', e.target.value)}
+                        placeholder="Metodología personalizada"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`apaReference-${unit.id}`} className="flex items-center gap-2">
+                      <Quote size={16} />
+                      Fuentes de Consulta Documental y Sitios Web
+                    </Label>
+                    <Textarea
+                      id={`apaReference-${unit.id}`}
+                      value={unit.apaReference}
+                      onChange={(e) => handleUnitChange(unitIndex, 'apaReference', e.target.value)}
+                      placeholder="Pegue aquí sus referencias bibliográficas y sitios web para validación con IA..."
+                      rows={4}
+                    />
+                  </div>
+                  <Button onClick={() => handleValidateReference(unitIndex)} disabled={validatingUnitIndex === unitIndex || !unit.apaReference}>
+                    {validatingUnitIndex === unitIndex ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" /> Validar con IA
+                      </>
+                    )}
+                  </Button>
+                  {unit.validationResult && (
+                    <Alert
+                      variant={unit.validationResult.isValid ? 'default' : 'destructive'}
+                      className={cn(
+                        unit.validationResult.isValid && 'bg-green-100 dark:bg-green-900 border-green-400 dark:border-green-600'
+                      )}
+                    >
+                      {unit.validationResult.isValid ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
+                      <AlertTitle>{unit.validationResult.isValid ? 'Referencia Válida' : 'Referencia Inválida'}</AlertTitle>
+                      <AlertDescription className="whitespace-pre-wrap">
+                        {unit.validationResult.feedback}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -493,7 +587,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[30%]">Evaluación</TableHead>
-                <TableHead className="w-[15%]">Peso (%)</TableHead>
+                <TableHead className="w-[15%] text-center">Peso (%)</TableHead>
                 <TableHead className="w-[35%]">Instrumento</TableHead>
                 <TableHead className="w-[15%]">Fecha</TableHead>
                 <TableHead className="w-[5%]">Acción</TableHead>
@@ -503,13 +597,13 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
               {(syllabus.evaluationCriteria || []).map((criterion, index) => (
                 <TableRow key={criterion.id}>
                   <TableCell>
-                    <Input value={criterion.evaluation} onChange={(e) => handleCriterionChange(index, 'evaluation', e.target.value)} />
+                    <Input readOnly value={criterion.evaluation} className="bg-muted/50" />
                   </TableCell>
                   <TableCell>
-                    <Input type="number" value={criterion.weight} onChange={(e) => handleCriterionChange(index, 'weight', e.target.valueAsNumber || 0)} />
+                    <Input readOnly type="number" value={criterion.weight} className="bg-muted/50 text-center" />
                   </TableCell>
                   <TableCell>
-                    <Input value={criterion.instrument} onChange={(e) => handleCriterionChange(index, 'instrument', e.target.value)} />
+                    <Input value={criterion.instrument} onChange={(e) => handleCriterionChange(index, 'instrument', e.target.value)} placeholder="Ej. Examen escrito" />
                   </TableCell>
                   <TableCell>
                      <Popover>
@@ -531,105 +625,17 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             <TableFooter>
                 <TableRow>
                     <TableCell className="font-bold">Total</TableCell>
-                    <TableCell className={cn("font-bold", totalEvaluationWeight !== 100 && "text-destructive")}>{totalEvaluationWeight}%</TableCell>
-                    <TableCell colSpan={3}></TableCell>
+                    <TableCell className={cn("text-center font-bold", totalEvaluationWeight !== 100 && "text-destructive")}>{totalEvaluationWeight}%</TableCell>
+                    <TableCell colSpan={3}>
+                      {totalEvaluationWeight !== 100 && <p className="text-xs text-destructive">La suma de los pesos debe ser 100%.</p>}
+                    </TableCell>
                 </TableRow>
             </TableFooter>
           </Table>
-          <Button onClick={handleAddCriterion} variant="outline" className="mt-4 w-full"><PlusCircle size={16} className="mr-2"/>Agregar Criterio</Button>
+          <Button onClick={handleAddCriterion} variant="outline" className="mt-4 w-full"><PlusCircle size={16} className="mr-2"/>Agregar Criterio (Modificable)</Button>
         </CardContent>
       </Card>
 
-
-      {/* Methodology and References */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FlaskConical className="text-primary" />
-            Metodología y Fuentes de Consulta
-          </CardTitle>
-          <CardDescription>
-            Seleccione una metodología y valide sus fuentes de consulta en formato APA.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="methodology">Metodología</Label>
-              <Select
-                onValueChange={(value) => handleFieldChange('methodology', value)}
-                value={syllabus.methodology}
-              >
-                <SelectTrigger id="methodology">
-                  <SelectValue placeholder="Seleccione una metodología" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ABP">Aprendizaje Basado en Proyectos</SelectItem>
-                  <SelectItem value="ABPr">Aprendizaje Basado en Problemas</SelectItem>
-                  <SelectItem value="EC">Estudio de Caso</SelectItem>
-                  <SelectItem value="Otro">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {syllabus.methodology === 'Otro' && (
-              <div className="space-y-2 animate-in fade-in">
-                <Label htmlFor="customMethodology">Especifique la metodología</Label>
-                <Input
-                  id="customMethodology"
-                  value={syllabus.customMethodology}
-                  onChange={(e) => handleFieldChange('customMethodology', e.target.value)}
-                  placeholder="Metodología personalizada"
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="apaReference" className="flex items-center gap-2">
-                <Quote size={16} />
-                Fuentes de Consulta Documental y Sitios Web
-              </Label>
-              <Textarea
-                id="apaReference"
-                value={syllabus.apaReference}
-                onChange={(e) => handleFieldChange('apaReference', e.target.value)}
-                placeholder="Pegue aquí sus referencias bibliográficas y sitios web para validación con IA..."
-                rows={4}
-              />
-            </div>
-            <Button onClick={handleValidateReference} disabled={isValidating || !syllabus.apaReference}>
-              {isValidating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validando...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" /> Validar con IA
-                </>
-              )}
-            </Button>
-            {validationResult && (
-              <Alert
-                variant={validationResult.isValid ? 'default' : 'destructive'}
-                className={cn(
-                  validationResult.isValid && 'bg-green-100 dark:bg-green-900 border-green-400 dark:border-green-600'
-                )}
-              >
-                {validationResult.isValid ? (
-                  <CheckCircle2 className="h-4 w-4" />
-                ) : (
-                  <XCircle className="h-4 w-4" />
-                )}
-                <AlertTitle>{validationResult.isValid ? 'Referencia Válida' : 'Referencia Inválida'}</AlertTitle>
-                <AlertDescription className="whitespace-pre-wrap">
-                  {validationResult.feedback}
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Signature */}
       <Card>

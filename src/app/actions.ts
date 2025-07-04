@@ -70,9 +70,6 @@ export async function createSyllabusAction(
       prerequisites: '',
       summary: '',
       learningUnits: [],
-      methodology: 'ABP',
-      customMethodology: '',
-      apaReference: '',
       signaturePreview: null,
       evaluationCriteria: [
         { id: 1, evaluation: 'Evaluación Parcial 1', weight: 20, instrument: 'Examen escrito', date: null },
@@ -175,6 +172,8 @@ export async function getSyllabusesAction(
     return { syllabuses };
   } catch (error: any) {
     if (error.code === 'permission-denied') {
+      // This can happen for new users who don't have a syllabus document yet.
+      // It's safe to return an empty array.
       return { syllabuses: [] }; 
     }
     const descriptiveError = `Error de base de datos (${error.code}). Verifique las reglas de Firestore y la conexión. Mensaje: ${error.message}`;
