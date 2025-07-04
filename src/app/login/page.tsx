@@ -24,12 +24,18 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      router.push('/');
+      if (email === 'patrickekw@gmail.com') {
+        router.push('/admin');
+      } else {
+        router.push('/');
+      }
     } catch (error: any) {
       console.error(error);
       let description = "No se pudo iniciar sesión. Verifique sus credenciales.";
       if (error.code === 'auth/configuration-not-found') {
         description = "La autenticación por correo electrónico y contraseña no está habilitada en su proyecto de Firebase. Por favor, habilítela en la consola de Firebase en la sección 'Authentication' -> 'Sign-in method'.";
+      } else if (error.code === 'auth/invalid-credential') {
+        description = "Credenciales incorrectas. Por favor, verifique su correo y contraseña.";
       } else if (error.message) {
         description = error.message;
       }

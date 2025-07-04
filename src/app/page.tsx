@@ -1,17 +1,20 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { SyllabusForm } from '@/components/syllabus-form';
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut, FilePlus, Trash2, Menu, FilePenLine } from 'lucide-react';
-import type { Syllabus } from '@/types/syllabus';
+import { Loader2, LogOut, FilePlus, Trash2, Menu, FilePenLine, Shield } from 'lucide-react';
+import type { Syllabus, UserData } from '@/types/syllabus';
 import {
   createSyllabusAction,
   deleteSyllabusAction,
   getSyllabusesAction,
   saveSyllabusAction,
+  getSyllabusByIdAction,
+  getAllUsersAction
 } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -30,17 +33,18 @@ import {
 import { Input } from '@/components/ui/input';
 
 export default function Home() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, isAdmin } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const [syllabuses, setSyllabuses] = useState<Syllabus[]>([]);
-  const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(null);
+  const [selectedSyllabus, setSelectedSyllabus] = useState<Syllabus | null>(null);
+  const [allUsers, setAllUsers] = useState<UserData[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [renamingSyllabusId, setRenamingSyllabusId] = useState<string | null>(null);
   const [tempSyllabusName, setTempSyllabusName] = useState('');
-
 
   useEffect(() => {
     if (!loading && !user) {
@@ -51,34 +55,55 @@ export default function Home() {
   useEffect(() => {
     if (user && user.uid) {
       setIsDataLoading(true);
-      getSyllabusesAction(user.uid)
-        .then(({ syllabuses: loadedSyllabuses, error }) => {
-          if (error) {
-            toast({ variant: 'destructive', title: 'Error al cargar datos', description: error });
-          } else {
-            setSyllabuses(loadedSyllabuses);
-            if (loadedSyllabuses.length > 0) {
-              setSelectedSyllabusId(loadedSyllabuses[0].id!);
+      const syllabusIdFromUrl = searchParams.get('syllabusId');
+
+      if (isAdmin && syllabusIdFromUrl) {
+        // Admin is editing a specific syllabus
+        Promise.all([
+          getSyllabusByIdAction(syllabusIdFromUrl),
+          getSyllabusesAction(user.uid), // Also fetch admin's own syllabuses for the sidebar
+          getAllUsersAction()
+        ]).then(([{ syllabus, error: syllabusError }, { syllabuses: userSyllabuses, error: listError }, { users, error: usersError }]) => {
+          if (syllabusError) toast({ variant: 'destructive', title: 'Error al cargar plan de estudios', description: syllabusError });
+          if (listError) toast({ variant: 'destructive', title: 'Error al cargar lista', description: listError });
+          if (usersError) toast({ variant: 'destructive', title: 'Error al cargar usuarios', description: usersError });
+          
+          setSelectedSyllabus(syllabus);
+          setSyllabuses(userSyllabuses);
+          setAllUsers(users);
+        }).finally(() => setIsDataLoading(false));
+
+      } else {
+        // Normal user flow
+        getSyllabusesAction(user.uid)
+          .then(({ syllabuses: loadedSyllabuses, error }) => {
+            if (error) {
+              toast({ variant: 'destructive', title: 'Error al cargar datos', description: error });
             } else {
-              setSelectedSyllabusId(null);
+              setSyllabuses(loadedSyllabuses);
+              if (loadedSyllabuses.length > 0) {
+                // If a syllabus was just selected from admin, don't override it
+                if (!selectedSyllabus) {
+                  setSelectedSyllabus(loadedSyllabuses[0]);
+                }
+              } else {
+                setSelectedSyllabus(null);
+              }
             }
-          }
-        })
-        .finally(() => setIsDataLoading(false));
+          })
+          .finally(() => setIsDataLoading(false));
+      }
     } else if (!loading) {
       setIsDataLoading(false);
     }
-  }, [user, loading, toast]);
+  }, [user, loading, toast, router, isAdmin, searchParams, selectedSyllabus]);
   
-  const selectedSyllabus = useMemo(() => {
-    return syllabuses.find(s => s.id === selectedSyllabusId) || null;
-  }, [syllabuses, selectedSyllabusId]);
-
   const handleCreateSyllabus = async () => {
     if (!user) return;
     setIsCreating(true);
     const authorName = user.displayName || user.email || 'Desconocido';
-    const { syllabus: newSyllabus, error } = await createSyllabusAction(user.uid, authorName);
+    const authorEmail = user.email || '';
+    const { syllabus: newSyllabus, error } = await createSyllabusAction(user.uid, authorName, authorEmail);
     if (error || !newSyllabus) {
       toast({
         variant: 'destructive',
@@ -87,7 +112,7 @@ export default function Home() {
       });
     } else {
       setSyllabuses((prev) => [...prev, newSyllabus]);
-      setSelectedSyllabusId(newSyllabus.id!);
+      setSelectedSyllabus(newSyllabus);
       toast({ title: 'Éxito', description: 'Nuevo plan de estudios creado.' });
     }
     setIsCreating(false);
@@ -105,8 +130,8 @@ export default function Home() {
     } else {
       const newSyllabuses = syllabuses.filter((s) => s.id !== syllabusId);
       setSyllabuses(newSyllabuses);
-      if (selectedSyllabusId === syllabusId) {
-        setSelectedSyllabusId(newSyllabuses.length > 0 ? newSyllabuses[0].id! : null);
+      if (selectedSyllabus?.id === syllabusId) {
+        setSelectedSyllabus(newSyllabuses.length > 0 ? newSyllabuses[0]! : null);
       }
       toast({ title: 'Éxito', description: 'Plan de estudios eliminado.' });
     }
@@ -118,7 +143,7 @@ export default function Home() {
   };
 
   const handleFinishRename = async (syllabusId: string) => {
-    const syllabusToUpdate = syllabuses.find(s => s.id === syllabusId);
+    const syllabusToUpdate = syllabuses.find(s => s.id === syllabusId) || (selectedSyllabus?.id === syllabusId ? selectedSyllabus : null);
     if (!syllabusToUpdate) return;
 
     if (!tempSyllabusName.trim()) {
@@ -143,13 +168,17 @@ export default function Home() {
     setRenamingSyllabusId(null);
   };
 
-  const handleSelectSyllabus = (syllabusId: string) => {
-    if (renamingSyllabusId !== syllabusId) {
-        setSelectedSyllabusId(syllabusId);
+  const handleSelectSyllabus = (syllabus: Syllabus) => {
+    if (renamingSyllabusId !== syllabus.id) {
+        if (isAdmin) {
+          router.push(`/?syllabusId=${syllabus.id}`);
+        }
+        setSelectedSyllabus(syllabus);
     }
   };
 
   const handleSyllabusChange = (updatedSyllabus: Syllabus) => {
+    setSelectedSyllabus(updatedSyllabus);
     setSyllabuses((prev) =>
       prev.map((s) => (s.id === updatedSyllabus.id ? updatedSyllabus : s))
     );
@@ -171,7 +200,7 @@ export default function Home() {
             <h2 className="text-lg font-semibold truncate">Mis Planes</h2>
           </SidebarHeader>
           <SidebarMenu className="p-2">
-            {isDataLoading ? (
+            {isDataLoading && syllabuses.length === 0 ? (
               <div className="flex justify-center p-4">
                 <Loader2 className="animate-spin" />
               </div>
@@ -194,8 +223,8 @@ export default function Home() {
                   ) : (
                     <>
                       <SidebarMenuButton
-                        isActive={selectedSyllabusId === syllabus.id}
-                        onClick={() => handleSelectSyllabus(syllabus.id!)}
+                        isActive={selectedSyllabus?.id === syllabus.id}
+                        onClick={() => handleSelectSyllabus(syllabus)}
                       >
                         <span className="truncate">{syllabus.courseName}</span>
                       </SidebarMenuButton>
@@ -240,7 +269,13 @@ export default function Home() {
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-          <div className="flex items-center gap-2 p-3 border-t text-sm">
+           <div className="flex flex-col gap-2 p-3 border-t text-sm">
+            {isAdmin && (
+               <Link href="/admin" className="flex items-center gap-2 font-semibold text-primary hover:underline">
+                  <Shield size={16} />
+                  <span>Panel de Admin</span>
+              </Link>
+            )}
             <button onClick={logout} className="flex items-center gap-2 font-semibold">
                 <LogOut size={16} />
                 <span>Cerrar Sesión</span>
@@ -276,6 +311,7 @@ export default function Home() {
             <SyllabusForm
               key={selectedSyllabus.id}
               syllabus={selectedSyllabus}
+              allUsers={allUsers}
               onSyllabusChange={handleSyllabusChange}
               onSave={saveSyllabusAction}
             />

@@ -5,8 +5,11 @@ import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, createUs
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
+const ADMIN_EMAIL = 'patrickekw@gmail.com';
+
 interface AuthContextType {
   user: User | null;
+  isAdmin: boolean;
   loading: boolean;
   login: (email: string, pass: string) => Promise<any>;
   register: (email: string, pass: string) => Promise<any>;
@@ -18,6 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -29,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      setIsAdmin(user?.email === ADMIN_EMAIL);
       setLoading(false);
     });
 
@@ -55,19 +60,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return Promise.resolve();
     }
     return signOut(auth).then(() => {
+      setIsAdmin(false);
       router.push('/login');
     });
   }
 
   const value = {
     user,
+    isAdmin,
     loading,
     login,
     register,
     logout,
   };
 
-  return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

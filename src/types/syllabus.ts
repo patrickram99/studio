@@ -26,23 +26,44 @@ export interface EvaluationCriterion {
   date: Date | null;
 }
 
-
 export interface Syllabus {
   id?: string;
   userId?: string;
+  
+  // Main name for the list
   courseName: string;
-  courseKey: string;
-  credits: string;
-  theoryHours: string;
-  practiceHours: string;
-  author: string;
+
+  // New detailed fields from image
+  facultad: string;
+  carreraProfesional: string;
+  periodoLectivo: string;
+  semestre: string;
+  numeroDeCreditos: string;
+  numeroDeHoras: {
+    teoria: string;
+    practica: string;
+  };
+  areaDeFormacion: string;
+  codigoDelCurso: string;
+  tipoDeCurso: string;
+  preRequisito: string;
+  docente: string;
+  correo: string;
+
+  // Core content
   creationDate: Date;
   updateDate: Date;
   graduateCompetency: string;
   courseCompetency: string;
-  prerequisites: string;
   summary: string;
   learningUnits: LearningUnit[];
   signaturePreview: string | null;
   evaluationCriteria: EvaluationCriterion[];
+}
+
+// Type for user data, helpful for the admin dashboard
+export interface UserData {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
 }

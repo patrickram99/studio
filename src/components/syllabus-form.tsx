@@ -38,22 +38,35 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import type { Syllabus, Week, LearningUnit, EvaluationCriterion } from '@/types/syllabus';
+import type { Syllabus, Week, LearningUnit, EvaluationCriterion, UserData } from '@/types/syllabus';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from './ui/table';
+import { useAuth } from '@/context/auth-context';
 
 interface SyllabusFormProps {
   syllabus: Syllabus;
+  allUsers: UserData[];
   onSyllabusChange: (updatedSyllabus: Syllabus) => void;
   onSave: (syllabusToSave: Syllabus) => Promise<{ success: boolean; error?: string }>;
 }
 
-export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFormProps) {
+export function SyllabusForm({ syllabus, allUsers, onSyllabusChange, onSave }: SyllabusFormProps) {
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [validatingUnitIndex, setValidatingUnitIndex] = useState<number | null>(null);
 
   const handleFieldChange = (field: keyof Syllabus, value: any) => {
     onSyllabusChange({ ...syllabus, [field]: value });
+  };
+
+  const handleNestedFieldChange = (field: keyof Syllabus, subField: string, value: any) => {
+    onSyllabusChange({ 
+      ...syllabus, 
+      [field]: {
+        ...(syllabus[field] as any),
+        [subField]: value
+      } 
+    });
   };
   
   const totalEvaluationWeight = useMemo(() => {
@@ -208,33 +221,34 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
   
   const handleExportPdf = useCallback(() => {
     const missingFields: string[] = [];
-    const {
-      courseName, courseKey, credits, theoryHours, practiceHours, author,
-      graduateCompetency, courseCompetency, prerequisites, summary,
-      learningUnits, evaluationCriteria
-    } = syllabus;
+    if (!syllabus.facultad.trim()) missingFields.push('Facultad');
+    if (!syllabus.carreraProfesional.trim()) missingFields.push('Carrera Profesional');
+    if (!syllabus.periodoLectivo.trim()) missingFields.push('Periodo Lectivo');
+    if (!syllabus.semestre.trim()) missingFields.push('Semestre');
+    if (!syllabus.numeroDeCreditos.trim()) missingFields.push('Nro. de Créditos');
+    if (!syllabus.numeroDeHoras.teoria.trim()) missingFields.push('Horas de Teoría');
+    if (!syllabus.numeroDeHoras.practica.trim()) missingFields.push('Horas de Práctica');
+    if (!syllabus.areaDeFormacion.trim()) missingFields.push('Área de Formación');
+    if (!syllabus.codigoDelCurso.trim()) missingFields.push('Código del Curso');
+    if (!syllabus.tipoDeCurso.trim()) missingFields.push('Tipo de Curso');
+    if (!syllabus.preRequisito.trim()) missingFields.push('Pre Requisito');
+    if (!syllabus.docente.trim()) missingFields.push('Docente');
+    if (!syllabus.correo.trim()) missingFields.push('Correo');
 
-    if (!courseName.trim()) missingFields.push('Nombre del curso');
-    if (!courseKey.trim()) missingFields.push('Clave');
-    if (!credits.trim() || credits === '0') missingFields.push('Créditos');
-    if (!theoryHours.trim() || theoryHours === '0') missingFields.push('Horas teóricas');
-    if (!practiceHours.trim()) missingFields.push('Horas prácticas');
-    if (!author.trim()) missingFields.push('Elaboró');
-    if (!graduateCompetency.trim()) missingFields.push('Competencia del Perfil de Egreso');
-    if (!courseCompetency.trim()) missingFields.push('Competencia del Curso');
-    if (!prerequisites.trim()) missingFields.push('Competencias Previas Requeridas');
-    if (!summary.trim()) missingFields.push('Resumen del Curso');
+    if (!syllabus.graduateCompetency.trim()) missingFields.push('Competencia del Perfil de Egreso');
+    if (!syllabus.courseCompetency.trim()) missingFields.push('Competencia del Curso');
+    if (!syllabus.summary.trim()) missingFields.push('Resumen del Curso');
     
     if (totalEvaluationWeight !== 100) missingFields.push('El peso total de evaluación debe ser 100%');
-    if ((evaluationCriteria || []).some(c => !c.evaluation.trim() || !c.instrument.trim() || !c.date)) {
+    if ((syllabus.evaluationCriteria || []).some(c => !c.evaluation.trim() || !c.instrument.trim() || !c.date)) {
         missingFields.push('Todos los campos en Criterios de Evaluación son requeridos');
     }
 
-    if ((learningUnits || []).length === 0) {
+    if ((syllabus.learningUnits || []).length === 0) {
       missingFields.push('Al menos una Unidad de Aprendizaje');
     } else {
         let unitError = false;
-        for (const unit of (learningUnits || [])) {
+        for (const unit of (syllabus.learningUnits || [])) {
             if (!unit.denomination.trim() || !unit.studentCapacity.trim() || !unit.startDate || !unit.endDate) {
                 unitError = true;
                 break;
@@ -257,7 +271,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
             }
         }
         if (unitError) {
-            missingFields.push('Todas las Unidades de Aprendizaje y sus subsecciones (metodología, semanas, etc.) deben estar completas');
+            missingFields.push('Todas las Unidades de Aprendizaje y sus subsecciones deben estar completas');
         }
     }
 
@@ -279,70 +293,93 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <GraduationCap className="text-primary" />
-            Información General del Curso
+            I. Datos Generales
           </CardTitle>
           <CardDescription>
             Proporcione los detalles básicos del curso. Todos los campos son en Español.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="courseName">Nombre del curso</Label>
-            <Input
-              id="courseName"
-              placeholder="Ej. Cálculo Diferencial"
-              value={syllabus.courseName}
-              onChange={(e) => handleFieldChange('courseName', e.target.value)}
-            />
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            {/* Col 1 */}
+            <div className="md:col-span-3 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="facultad">Facultad</Label>
+                <Input id="facultad" value={syllabus.facultad} onChange={(e) => handleFieldChange('facultad', e.target.value)} placeholder="Ingenierías y Arquitectura" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="carreraProfesional">Carrera Profesional</Label>
+                <Input id="carreraProfesional" value={syllabus.carreraProfesional} onChange={(e) => handleFieldChange('carreraProfesional', e.target.value)} placeholder="Ingeniería de Software" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="periodoLectivo">Periodo Lectivo</Label>
+                <Input id="periodoLectivo" value={syllabus.periodoLectivo} onChange={(e) => handleFieldChange('periodoLectivo', e.target.value)} placeholder="2025 - I" />
+              </div>
+            </div>
+
+            {/* Col 2 */}
+            <div className="md:col-span-2 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="semestre">Semestre</Label>
+                <Input id="semestre" value={syllabus.semestre} onChange={(e) => handleFieldChange('semestre', e.target.value)} placeholder="VII" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="numeroDeCreditos">Nro. de Créditos</Label>
+                <Input id="numeroDeCreditos" value={syllabus.numeroDeCreditos} onChange={(e) => handleFieldChange('numeroDeCreditos', e.target.value)} placeholder="Cuatro" />
+              </div>
+              <div className="space-y-2">
+                <Label>Nro. de Horas</Label>
+                <div className="flex gap-2">
+                  <Input type="number" value={syllabus.numeroDeHoras.teoria} onChange={(e) => handleNestedFieldChange('numeroDeHoras', 'teoria', e.target.value)} placeholder="Teoría" aria-label="Horas de teoría" />
+                  <Input type="number" value={syllabus.numeroDeHoras.practica} onChange={(e) => handleNestedFieldChange('numeroDeHoras', 'practica', e.target.value)} placeholder="Práctica" aria-label="Horas de práctica"/>
+                </div>
+              </div>
+            </div>
+
+            {/* Col 3 */}
+            <div className="md:col-span-3 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="areaDeFormacion">Área de Formación</Label>
+                <Input id="areaDeFormacion" value={syllabus.areaDeFormacion} onChange={(e) => handleFieldChange('areaDeFormacion', e.target.value)} placeholder="Estudios de Especialidad" />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="codigoDelCurso">Código del Curso</Label>
+                <Input id="codigoDelCurso" value={syllabus.codigoDelCurso} onChange={(e) => handleFieldChange('codigoDelCurso', e.target.value)} placeholder="3.7.4.21" />
+              </div>
+            </div>
+
+            {/* Col 4 */}
+            <div className="md:col-span-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="tipoDeCurso">Tipo de Curso</Label>
+                <Input id="tipoDeCurso" value={syllabus.tipoDeCurso} onChange={(e) => handleFieldChange('tipoDeCurso', e.target.value)} placeholder="Obligatorio" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="preRequisito">Pre Requisito(s)</Label>
+                <Input id="preRequisito" value={syllabus.preRequisito} onChange={(e) => handleFieldChange('preRequisito', e.target.value)} placeholder="Base de Datos II" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="docente">Docente y Correo</Label>
+                 <Input id="docente" value={syllabus.docente} onChange={(e) => handleFieldChange('docente', e.target.value)} placeholder="Nombre del Docente" />
+                 <Input id="correo" type="email" value={syllabus.correo} onChange={(e) => handleFieldChange('correo', e.target.value)} placeholder="correo@example.com" />
+              </div>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="courseKey">Clave</Label>
-            <Input
-              id="courseKey"
-              placeholder="Ej. 1011"
-              value={syllabus.courseKey}
-              onChange={(e) => handleFieldChange('courseKey', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="credits">Créditos</Label>
-            <Input
-              id="credits"
-              type="number"
-              placeholder="Ej. 8"
-              value={syllabus.credits}
-              onChange={(e) => handleFieldChange('credits', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="theoryHours">Horas teóricas</Label>
-            <Input
-              id="theoryHours"
-              type="number"
-              placeholder="Ej. 4"
-              value={syllabus.theoryHours}
-              onChange={(e) => handleFieldChange('theoryHours', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="practiceHours">Horas prácticas</Label>
-            <Input
-              id="practiceHours"
-              type="number"
-              placeholder="Ej. 2"
-              value={syllabus.practiceHours}
-              onChange={(e) => handleFieldChange('practiceHours', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="author">Elaboró</Label>
-            <Input
-              id="author"
-              placeholder="Nombre del profesor"
-              value={syllabus.author}
-              onChange={(e) => handleFieldChange('author', e.target.value)}
-            />
-          </div>
+          {isAdmin && allUsers.length > 0 && (
+            <div className="pt-4 mt-4 border-t">
+              <Label htmlFor="assign-user">Asignar a Usuario (Admin)</Label>
+              <Select value={syllabus.userId} onValueChange={(value) => handleFieldChange('userId', value)}>
+                <SelectTrigger id="assign-user">
+                  <SelectValue placeholder="Seleccionar un usuario..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allUsers.map(u => (
+                    <SelectItem key={u.uid} value={u.uid}>{u.email || u.displayName || u.uid}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -384,23 +421,13 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardList className="text-primary" />
-            Resumen y Prerrequisitos
+            Resumen del Curso
           </CardTitle>
           <CardDescription>
-            Detalle las competencias previas y un resumen del contenido del curso.
+            Proporcione un resumen conciso del contenido del curso.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="prerequisites">Competencias Previas Requeridas</Label>
-            <Textarea
-              id="prerequisites"
-              placeholder="Ej. Conocimientos básicos de álgebra."
-              rows={4}
-              value={syllabus.prerequisites}
-              onChange={(e) => handleFieldChange('prerequisites', e.target.value)}
-            />
-          </div>
+        <CardContent>
           <div className="space-y-2">
             <Label htmlFor="summary">Resumen del Curso</Label>
             <Textarea

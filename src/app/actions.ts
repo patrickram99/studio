@@ -6,7 +6,7 @@ import {
   ValidateApaReferenceOutput,
 } from '@/ai/flows/validate-apa-reference';
 import { db } from '@/lib/firebase';
-import type { Syllabus } from '@/types/syllabus';
+import type { Syllabus, UserData } from '@/types/syllabus';
 import {
   doc,
   setDoc,
@@ -18,7 +18,10 @@ import {
   query,
   where,
   Timestamp,
+  orderBy,
 } from 'firebase/firestore';
+import { getAuth } from "firebase-admin/auth";
+import { adminApp } from '@/lib/firebase-admin';
 
 export async function validateReferenceAction(
   referenceText: string
@@ -49,7 +52,8 @@ export async function validateReferenceAction(
  */
 export async function createSyllabusAction(
   userId: string,
-  authorName: string
+  authorName: string,
+  authorEmail: string
 ): Promise<{ syllabus: Syllabus | null; error?: string }> {
   if (!db) return { syllabus: null, error: 'La base de datos no está configurada.' };
   if (!userId) return { syllabus: null, error: 'Usuario no autenticado.' };
@@ -58,11 +62,18 @@ export async function createSyllabusAction(
     const newSyllabusData = {
       userId,
       courseName: 'Nuevo Plan de Estudio',
-      courseKey: 'CURSO-101',
-      credits: '0',
-      theoryHours: '0',
-      practiceHours: '0',
-      author: authorName,
+      facultad: '',
+      carreraProfesional: '',
+      periodoLectivo: '',
+      semestre: '',
+      numeroDeCreditos: '',
+      numeroDeHoras: { teoria: '', practica: '' },
+      areaDeFormacion: '',
+      codigoDelCurso: '',
+      tipoDeCurso: '',
+      preRequisito: '',
+      docente: authorName,
+      correo: authorEmail,
       creationDate: Timestamp.now(),
       updateDate: Timestamp.now(),
       graduateCompetency: '',
@@ -172,8 +183,6 @@ export async function getSyllabusesAction(
     return { syllabuses };
   } catch (error: any) {
     if (error.code === 'permission-denied') {
-      // This can happen for new users who don't have a syllabus document yet.
-      // It's safe to return an empty array.
       return { syllabuses: [] }; 
     }
     const descriptiveError = `Error de base de datos (${error.code}). Verifique las reglas de Firestore y la conexión. Mensaje: ${error.message}`;
@@ -228,5 +237,54 @@ export async function getSyllabusByIdAction(
   } catch (error: any) {
     console.error('Error getting syllabus by ID:', error);
     return { syllabus: null, error: error.message };
+  }
+}
+
+
+// --- ADMIN ACTIONS ---
+
+/**
+ * Fetches all syllabuses from all users. (Admin only)
+ */
+export async function getAllSyllabusesAction(): Promise<{ syllabuses: Syllabus[]; error?: string }> {
+  if (!db) return { syllabuses: [], error: 'La base de datos no está configurada.' };
+  
+  try {
+    const q = query(collection(db, 'syllabuses'), orderBy('updateDate', 'desc'));
+    const querySnapshot = await getDocs(q);
+
+    const syllabuses = querySnapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+      const convertedData = convertTimestampsToDates(data);
+      return {
+        ...convertedData,
+        id: docSnap.id,
+      } as Syllabus;
+    });
+
+    return { syllabuses };
+  } catch (error: any) {
+    console.error('Error fetching all syllabuses:', error);
+    const descriptiveError = `Error de base de datos (${error.code}). Verifique las reglas de Firestore y la conexión. Mensaje: ${error.message}`;
+    return { syllabuses: [], error: descriptiveError };
+  }
+}
+
+/**
+ * Fetches all users from Firebase Auth. (Admin only)
+ */
+export async function getAllUsersAction(): Promise<{ users: UserData[]; error?: string }> {
+  try {
+    const auth = getAuth(adminApp);
+    const userRecords = await auth.listUsers();
+    const users = userRecords.users.map(user => ({
+      uid: user.uid,
+      email: user.email || null,
+      displayName: user.displayName || null,
+    }));
+    return { users };
+  } catch (error: any) {
+    console.error('Error fetching all users:', error);
+    return { users: [], error: error.message };
   }
 }

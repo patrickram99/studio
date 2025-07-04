@@ -14,11 +14,14 @@ const tdStyle = "p-2 text-left border-b border-gray-300 align-top";
 const h2Style = "text-xl font-bold mb-4 border-b border-gray-400 pb-2";
 const h3Style = "text-lg font-semibold mb-2 bg-gray-100 p-2 border border-gray-300";
 const h4Style = "font-semibold my-2";
+const tableCellStyle = "border border-black p-1 align-top";
+const tableHeaderStyle = `${tableCellStyle} font-bold bg-gray-200`;
+
 
 export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
   
   return (
-    <div className="font-sans text-sm text-gray-800 space-y-8">
+    <div className="font-sans text-xs text-gray-800 space-y-8">
       {/* Header */}
       <div className="text-center pb-4 border-b-2 border-gray-800">
         <h1 className="text-3xl font-bold uppercase tracking-wider">{syllabus.courseName}</h1>
@@ -27,40 +30,45 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
 
       {/* I. General Information */}
       <section>
-        <h2 className={h2Style}>I. Información General del Curso</h2>
-        <table className="w-full border-collapse">
+        <h2 className={h2Style}>I. DATOS GENERALES</h2>
+        <table className="w-full border-collapse border border-black text-xs">
           <tbody>
             <tr>
-              <td className={`${tdStyle} font-semibold w-1/3`}>Nombre del curso:</td>
-              <td className={tdStyle}>{syllabus.courseName}</td>
+              <td className={tableHeaderStyle}>FACULTAD</td>
+              <td className={tableCellStyle} colSpan={2}>{syllabus.facultad}</td>
+              <td className={tableHeaderStyle}>SEMESTRE</td>
+              <td className={tableCellStyle} colSpan={2}>{syllabus.semestre}</td>
+              <td className={tableHeaderStyle} rowSpan={2}>ÁREA DE FORMACIÓN</td>
+              <td className={tableCellStyle} rowSpan={2} colSpan={2}>{syllabus.areaDeFormacion}</td>
+              <td className={tableHeaderStyle}>TIPO DE CURSO</td>
+              <td className={tableCellStyle} colSpan={2}>{syllabus.tipoDeCurso}</td>
             </tr>
             <tr>
-              <td className={`${tdStyle} font-semibold`}>Clave:</td>
-              <td className={tdStyle}>{syllabus.courseKey}</td>
+              <td className={tableHeaderStyle}>CARRERA PROFESIONAL</td>
+              <td className={tableCellStyle} colSpan={2}>{syllabus.carreraProfesional}</td>
+              <td className={tableHeaderStyle}>NRO. DE CRÉDITOS</td>
+              <td className={tableCellStyle} colSpan={2}>{syllabus.numeroDeCreditos}</td>
+              <td className={tableHeaderStyle}>PRE REQUISITO (s)</td>
+              <td className={tableCellStyle} colSpan={2}>{syllabus.preRequisito}</td>
             </tr>
             <tr>
-              <td className={`${tdStyle} font-semibold`}>Créditos:</td>
-              <td className={tdStyle}>{syllabus.credits}</td>
+              <td className={tableHeaderStyle}>PERIODO LECTIVO</td>
+              <td className={tableCellStyle} colSpan={2}>{syllabus.periodoLectivo}</td>
+              <td className={tableHeaderStyle} rowSpan={2}>NRO. DE HORAS</td>
+              <td className={tableCellStyle}>Teoría</td>
+              <td className={tableCellStyle}>{syllabus.numeroDeHoras.teoria}</td>
+              <td className={tableHeaderStyle} rowSpan={2}>CÓDIGO DEL CURSO</td>
+              <td className={tableCellStyle} rowSpan={2} colSpan={2}>{syllabus.codigoDelCurso}</td>
+              <td className={tableHeaderStyle} rowSpan={2} colSpan={3}>
+                DOCENTE: {syllabus.docente} <br/>
+                CORREO: {syllabus.correo}
+              </td>
             </tr>
             <tr>
-              <td className={`${tdStyle} font-semibold`}>Horas teóricas:</td>
-              <td className={tdStyle}>{syllabus.theoryHours}</td>
-            </tr>
-            <tr>
-              <td className={`${tdStyle} font-semibold`}>Horas prácticas:</td>
-              <td className={tdStyle}>{syllabus.practiceHours}</td>
-            </tr>
-            <tr>
-              <td className={`${tdStyle} font-semibold`}>Elaboró:</td>
-              <td className={tdStyle}>{syllabus.author}</td>
-            </tr>
-            <tr>
-              <td className={`${tdStyle} font-semibold`}>Fecha de elaboración:</td>
-              <td className={tdStyle}>{syllabus.creationDate ? format(new Date(syllabus.creationDate), "dd 'de' MMMM 'de' yyyy", { locale: es }) : ''}</td>
-            </tr>
-             <tr>
-              <td className={`${tdStyle} font-semibold`}>Fecha de última actualización:</td>
-              <td className={tdStyle}>{syllabus.updateDate ? format(new Date(syllabus.updateDate), "dd 'de' MMMM 'de' yyyy", { locale: es }) : ''}</td>
+              <td className={tableHeaderStyle}>Elaboró:</td>
+              <td className={tableCellStyle} colSpan={2}>{syllabus.docente}</td>
+              <td className={tableCellStyle}>Práctica</td>
+              <td className={tableCellStyle}>{syllabus.numeroDeHoras.practica}</td>
             </tr>
           </tbody>
         </table>
@@ -81,16 +89,11 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
         </div>
       </section>
 
-      {/* III. Summary and Prerequisites */}
+      {/* III. Summary */}
        <section>
-        <h2 className={h2Style}>III. Resumen y Prerrequisitos</h2>
+        <h2 className={h2Style}>III. Resumen del Curso</h2>
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold mb-1">Competencias Previas Requeridas:</h3>
-            <p className="pl-4 whitespace-pre-wrap">{syllabus.prerequisites}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-1">Resumen del Curso:</h3>
             <p className="pl-4 whitespace-pre-wrap">{syllabus.summary}</p>
           </div>
         </div>
@@ -187,13 +190,13 @@ export function PrintableSyllabus({ syllabus }: PrintableSyllabusProps) {
                     style={{ objectFit: 'contain' }}
                   />
                 <div className="border-t-2 border-gray-700 w-72 mt-2"></div>
-                <p className="mt-1 font-semibold">{syllabus.author}</p>
+                <p className="mt-1 font-semibold">{syllabus.docente}</p>
                 <p>Firma del Docente</p>
                </div>
             ) : (
               <div className="flex flex-col items-center">
                 <div className="border-t-2 border-gray-700 w-72 mt-24"></div>
-                <p className="mt-1 font-semibold">{syllabus.author}</p>
+                <p className="mt-1 font-semibold">{syllabus.docente}</p>
                 <p>Firma del Docente</p>
               </div>
             )}
