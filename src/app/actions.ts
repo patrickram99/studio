@@ -146,6 +146,11 @@ export async function getSyllabusesAction(
 
     return { syllabuses };
   } catch (error: any) {
+    // Gracefully handle permission errors for new users who don't have a collection yet.
+    if (error.code === 'permission-denied' || error.code === 'failed-precondition') {
+        console.warn('Firestore permission denied. This is expected for new users. Returning empty list.');
+        return { syllabuses: [] };
+    }
     console.error('Error getting syllabuses:', error);
     return { syllabuses: [], error: error.message };
   }
