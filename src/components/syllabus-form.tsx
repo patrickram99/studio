@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardList,
   FileSignature,
+  FlaskConical,
   GraduationCap,
   KeyRound,
   Library,
@@ -61,24 +62,25 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
   };
   
   const totalEvaluationWeight = useMemo(() => {
-    return syllabus.evaluationCriteria.reduce((total, criterion) => total + (Number(criterion.weight) || 0), 0);
+    return (syllabus.evaluationCriteria || []).reduce((total, criterion) => total + (Number(criterion.weight) || 0), 0);
   }, [syllabus.evaluationCriteria]);
 
 
   // Learning Unit Handlers
   const handleUnitChange = (unitIndex: number, field: keyof LearningUnit, value: any) => {
-    const newLearningUnits = syllabus.learningUnits.map((unit, uIndex) =>
+    const newLearningUnits = (syllabus.learningUnits || []).map((unit, uIndex) =>
       uIndex === unitIndex ? { ...unit, [field]: value } : unit
     );
     onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
   };
 
   const handleAddUnit = () => {
+    const currentUnits = syllabus.learningUnits || [];
     const newLearningUnits = [
-      ...syllabus.learningUnits,
+      ...currentUnits,
       {
         id: Date.now(),
-        denomination: `Unidad ${syllabus.learningUnits.length + 1}`,
+        denomination: `Unidad ${currentUnits.length + 1}`,
         startDate: null,
         endDate: null,
         studentCapacity: '',
@@ -89,12 +91,16 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
   };
 
   const handleDeleteUnit = (unitId: number) => {
-    const newLearningUnits = syllabus.learningUnits.filter((unit) => unit.id !== unitId);
+    const newLearningUnits = (syllabus.learningUnits || []).filter((unit) => unit.id !== unitId);
     onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
   };
 
   const handleAddWeek = (unitIndex: number) => {
-    const newLearningUnits = [...syllabus.learningUnits];
+    const newLearningUnits = [...(syllabus.learningUnits || [])];
+    if (!newLearningUnits[unitIndex]) return;
+    if (!newLearningUnits[unitIndex].weeks) {
+        newLearningUnits[unitIndex].weeks = [];
+    }
     newLearningUnits[unitIndex].weeks.push({
       id: Date.now(),
       specificContents: '',
@@ -103,23 +109,27 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
   };
 
   const handleDeleteWeek = (unitIndex: number, weekId: number) => {
-    const newLearningUnits = [...syllabus.learningUnits];
-    newLearningUnits[unitIndex].weeks = newLearningUnits[unitIndex].weeks.filter(
-      (week) => week.id !== weekId
-    );
+    const newLearningUnits = [...(syllabus.learningUnits || [])];
+    if (newLearningUnits[unitIndex]?.weeks) {
+      newLearningUnits[unitIndex].weeks = newLearningUnits[unitIndex].weeks.filter(
+        (week) => week.id !== weekId
+      );
+    }
     onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
   };
 
   const handleWeekChange = (unitIndex: number, weekIndex: number, value: string) => {
-    const newLearningUnits = [...syllabus.learningUnits];
-    newLearningUnits[unitIndex].weeks[weekIndex].specificContents = value;
+    const newLearningUnits = [...(syllabus.learningUnits || [])];
+    if (newLearningUnits[unitIndex]?.weeks?.[weekIndex]) {
+      newLearningUnits[unitIndex].weeks[weekIndex].specificContents = value;
+    }
     onSyllabusChange({ ...syllabus, learningUnits: newLearningUnits });
   };
 
 
   // Evaluation Criteria Handlers
   const handleCriterionChange = (critIndex: number, field: keyof EvaluationCriterion, value: any) => {
-      const newCriteria = syllabus.evaluationCriteria.map((crit, cIndex) =>
+      const newCriteria = (syllabus.evaluationCriteria || []).map((crit, cIndex) =>
       cIndex === critIndex ? { ...crit, [field]: value } : crit
     );
     onSyllabusChange({ ...syllabus, evaluationCriteria: newCriteria });
@@ -127,7 +137,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
 
   const handleAddCriterion = () => {
     const newCriteria = [
-      ...syllabus.evaluationCriteria,
+      ...(syllabus.evaluationCriteria || []),
       {
         id: Date.now(),
         evaluation: '',
@@ -140,7 +150,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
   };
 
   const handleDeleteCriterion = (critId: number) => {
-    const newCriteria = syllabus.evaluationCriteria.filter((crit) => crit.id !== critId);
+    const newCriteria = (syllabus.evaluationCriteria || []).filter((crit) => crit.id !== critId);
     onSyllabusChange({ ...syllabus, evaluationCriteria: newCriteria });
   };
 
@@ -205,20 +215,20 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     if (!apaReference.trim()) missingFields.push('Fuentes de consulta');
     
     if (totalEvaluationWeight !== 100) missingFields.push('El peso total de evaluación debe ser 100%');
-    if (evaluationCriteria.some(c => !c.evaluation.trim() || !c.instrument.trim() || !c.date)) {
+    if ((evaluationCriteria || []).some(c => !c.evaluation.trim() || !c.instrument.trim() || !c.date)) {
         missingFields.push('Todos los campos en Criterios de Evaluación son requeridos');
     }
 
-    if (learningUnits.length === 0) {
+    if ((learningUnits || []).length === 0) {
       missingFields.push('Unidades de Aprendizaje');
     } else {
         let unitError = false;
-        for (const unit of learningUnits) {
+        for (const unit of (learningUnits || [])) {
             if (!unit.denomination.trim() || !unit.studentCapacity.trim() || !unit.startDate || !unit.endDate) {
                 unitError = true;
                 break;
             }
-            if(unit.weeks.length === 0 || unit.weeks.some(w => !w.specificContents.trim())) {
+            if((unit.weeks || []).length === 0 || (unit.weeks || []).some(w => !w.specificContents.trim())) {
                 unitError = true;
                 break;
             }
@@ -391,7 +401,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
           <CardDescription>Defina las unidades de aprendizaje, sus capacidades, fechas y contenidos semanales.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {syllabus.learningUnits.map((unit, unitIndex) => (
+          {(syllabus.learningUnits || []).map((unit, unitIndex) => (
             <div key={unit.id} className="p-4 border rounded-lg space-y-4 bg-background/50">
               <div className="flex items-center justify-between gap-4 mb-4">
                   <h3 className="text-lg font-semibold">Unidad {unitIndex + 1}</h3>
@@ -442,7 +452,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
                       <Button variant="outline" size="sm" onClick={() => handleAddWeek(unitIndex)}><PlusCircle size={14} className="mr-2" /> Agregar Semana</Button>
                   </div>
                   <div className="space-y-2">
-                      {unit.weeks.map((week, weekIndex) => (
+                      {(unit.weeks || []).map((week, weekIndex) => (
                           <div key={week.id} className="flex items-start gap-2">
                               <div className="flex items-center gap-2 pt-2">
                                   <span className="font-semibold text-sm w-16">Semana {weekIndex + 1}</span>
@@ -457,7 +467,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
                               />
                           </div>
                       ))}
-                      {unit.weeks.length === 0 && <p className="text-center text-sm text-muted-foreground py-2">No hay semanas en esta unidad.</p>}
+                      {(unit.weeks || []).length === 0 && <p className="text-center text-sm text-muted-foreground py-2">No hay semanas en esta unidad.</p>}
                   </div>
               </div>
             </div>
@@ -490,7 +500,7 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
               </TableRow>
             </TableHeader>
             <TableBody>
-              {syllabus.evaluationCriteria.map((criterion, index) => (
+              {(syllabus.evaluationCriteria || []).map((criterion, index) => (
                 <TableRow key={criterion.id}>
                   <TableCell>
                     <Input value={criterion.evaluation} onChange={(e) => handleCriterionChange(index, 'evaluation', e.target.value)} />
