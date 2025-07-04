@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, ChangeEvent, useCallback, useMemo } from 'react';
-import Link from 'next/link';
 import {
   BookOpen,
   CalendarDays,
@@ -187,6 +186,63 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
     }
     setIsSaving(false);
   };
+  
+  const handleExportPdf = useCallback(() => {
+    const missingFields: string[] = [];
+    const {
+      courseName, courseKey, credits, theoryHours, practiceHours, author,
+      graduateCompetency, courseCompetency, prerequisites, summary,
+      learningUnits, methodology, customMethodology, apaReference
+    } = syllabus;
+
+    if (!courseName.trim()) missingFields.push('Nombre del curso');
+    if (!courseKey.trim()) missingFields.push('Clave');
+    if (!credits.trim()) missingFields.push('Créditos');
+    if (!theoryHours.trim()) missingFields.push('Horas teóricas');
+    if (!practiceHours.trim()) missingFields.push('Horas prácticas');
+    if (!author.trim()) missingFields.push('Elaboró');
+    if (!graduateCompetency.trim()) missingFields.push('Competencia del Perfil de Egreso');
+    if (!courseCompetency.trim()) missingFields.push('Competencia del Curso');
+    if (!prerequisites.trim()) missingFields.push('Competencias Previas Requeridas');
+    if (!summary.trim()) missingFields.push('Resumen del Curso');
+    if (!methodology) missingFields.push('Metodología');
+    if (methodology === 'Otro' && !customMethodology.trim()) {
+      missingFields.push('Especifique la metodología');
+    }
+    if (!apaReference.trim()) missingFields.push('Referencia Bibliográfica (APA)');
+
+    if (learningUnits.length === 0) {
+      missingFields.push('Unidades de Aprendizaje');
+    } else {
+      let unitError = false;
+      for (const unit of learningUnits) {
+        if (!unit.name.trim() || unit.weeks.length === 0) {
+          unitError = true;
+          break;
+        }
+        for (const week of unit.weeks) {
+          if (!week.topic.trim() || !week.activities.trim() || !week.evidence.trim()) {
+            unitError = true;
+            break;
+          }
+        }
+        if (unitError) break;
+      }
+      if (unitError) {
+        missingFields.push('Todas las Unidades de Aprendizaje y sus semanas deben estar completas');
+      }
+    }
+
+    if (missingFields.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Faltan campos por llenar',
+        description: `Por favor, complete los siguientes campos: ${missingFields.slice(0, 4).join(', ')}${missingFields.length > 4 ? '...' : '.'}`,
+      });
+    } else {
+      window.open(`/print/${syllabus.id}`, '_blank');
+    }
+  }, [syllabus, toast]);
 
   return (
     <div className="space-y-8">
@@ -681,11 +737,9 @@ export function SyllabusForm({ syllabus, onSyllabusChange, onSave }: SyllabusFor
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save />}
           {isSaving ? 'Guardando...' : 'Guardar Progreso'}
         </Button>
-        <Button size="lg" asChild>
-          <Link href={`/print/${syllabus.id}`} target="_blank">
+        <Button size="lg" onClick={handleExportPdf}>
             <Printer className="mr-2" />
             Generar y Exportar PDF
-          </Link>
         </Button>
       </div>
     </div>
